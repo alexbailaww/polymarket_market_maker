@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>3b3c Bot Farm</title>
+  <style>
+    /* Reset & Global Styles */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      background-color: #121212;
+      color: #e0e0e0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      line-height: 1.6;
+      padding: 20px;
+    }
+    /* Header */
+    header {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+    header img {
+      height: 60px;
+      margin-bottom: 10px;
+    }
+    header h1 {
+      font-size: 2.5em;
+      font-weight: 700;
+    }
+    /* Global Controls */
+    #global-controls {
+      margin-bottom: 20px;
+      text-align: center;
+    }
+    #global-controls button {
+      margin: 0 10px 10px;
+      padding: 10px 15px;
+      background-color: #333;
+      color: #e0e0e0;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 1em;
+      transition: background-color 0.3s ease;
+    }
+    #global-controls button:hover {
+      background-color: #555;
+    }
+    /* Emergency Shutdown Button */
+    #global-controls button.shutdown {
+      background-color: #d32f2f;
+    }
+    #global-controls button.shutdown:hover {
+      background-color: #b71c1c;
+    }
+    /* Market Search Section with Dropdown Multi-select */
+    #market-search {
+      text-align: center;
+      margin-bottom: 20px;
+      position: relative;
+      width: 40%;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    #market-search input {
+      width: 100%;
+      padding: 10px;
+      font-size: 1em;
+      border: 1px solid #444;
+      border-radius: 4px;
+    }
+    /* Dropdown suggestions */
+    #suggestions {
+      position: absolute;
+      top: 42px;
+      width: 100%;
+      background-color: #333;
+      border: 1px solid #444;
+      border-radius: 4px;
+      z-index: 100;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    .suggestion {
+      padding: 8px;
+      cursor: pointer;
+      text-align: left;
+    }
+    .suggestion:hover {
+      background-color: #555;
+    }
+    /* Selected Markets Display (Chips) */
+    #selected-markets {
+      margin-top: 10px;
+      text-align: center;
+    }
+    .chip {
+      display: inline-block;
+      background-color: #444;
+      padding: 6px 10px;
+      border-radius: 16px;
+      margin: 4px;
+      font-size: 0.9em;
+      cursor: default;
+    }
+    .chip .remove {
+      margin-left: 6px;
+      color: #e0e0e0;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    /* Clear Inactive Selections Button */
+    #clear-inactive {
+      margin-top: 10px;
+      padding: 10px 15px;
+      background-color: #555;
+      color: #e0e0e0;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 1em;
+      transition: background-color 0.3s ease;
+    }
+    #clear-inactive:disabled {
+      background-color: #333;
+      cursor: not-allowed;
+    }
+    /* Task List (Minimalist) - narrower */
+    #task-list {
+      background-color: #1e1e1e;
+      padding: 10px;
+      margin-bottom: 20px;
+      border: 1px solid #444;
+      border-radius: 4px;
+      text-align: center;
+      font-size: 1.1em;
+      width: 200px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    /* Bots Grid: Limit to 3 columns */
+    #bots {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      grid-gap: 20px;
+    }
+    .bot {
+      background-color: #1e1e1e;
+      border: 1px solid #444;
+      border-radius: 4px;
+      padding: 15px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-height: 400px;
+    }
+    .bot h2 {
+      font-size: 1.5em;
+      margin-bottom: 10px;
+      text-align: center;
+    }
+    .bot p {
+      font-size: 1em;
+      margin-bottom: 10px;
+      text-align: center;
+    }
+    .bot .status {
+      text-align: center;
+      margin-bottom: 10px;
+      font-size: 1em;
+    }
+    .bot .buttons {
+      text-align: center;
+      margin-bottom: 10px;
+    }
+    .bot button {
+      margin: 5px;
+      padding: 8px 10px;
+      background-color: #333;
+      color: #e0e0e0;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.9em;
+      transition: background-color 0.3s ease;
+    }
+    .bot button:hover {
+      background-color: #555;
+    }
+    .bot h3 {
+      margin-bottom: 5px;
+      text-align: center;
+      font-size: 1.1em;
+    }
+    .log {
+      background-color: #000;
+      color: unset;
+      font-family: Consolas, 'Courier New', monospace;
+      font-size: 0.85em;
+      height: 250px;
+      overflow-y: auto;
+      padding: 10px;
+      border: 1px solid #444;
+      border-radius: 4px;
+    }
+    /* Bots Header */
+    #bots-header {
+      background-color: #222;
+      border: 1px solid #444;
+      border-radius: 4px;
+      padding: 10px;
+      margin-bottom: 10px;
+      text-align: center;
+      width: 100%;
+    }
+    #bots-header h2 {
+      font-size: 1.8em;
+      color: #fff;
+      margin: 0;
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/ansi_up@5.0.0/ansi_up.min.js"></script>
+</head>
+<body>
+  <!-- Centered Header with logo and title -->
+  <header>
+    <img src="https://images.crunchbase.com/image/upload/c_pad,f_auto,q_auto:eco,dpr_1/radxv99bd8jwiuqwxt95" alt="PolyMarket Logo">
+    <h1>3b3c Bot Farm</h1>
+  </header>
+
+  <div id="global-controls">
+    <button onclick="startAll()">Start All Bots</button>
+    <button onclick="stopAll()">Stop All Bots</button>
+    <button class="shutdown" onclick="shutdownServer()"><b>EMERGENCY SHUTDOWN</b></button>
+  </div>
+
+  <!-- Market Search Section with Dropdown Multi-select -->
+  <div id="market-search">
+    <input type="text" id="search-input" placeholder="Enter market title..." autocomplete="off" oninput="searchMarkets()" />
+    <div id="suggestions"></div>
+    <div id="selected-markets"></div>
+    <button id="clear-inactive" onclick="clearInactiveSelections()">Clear Inactive Selections</button>
+  </div>
+
+  <!-- Minimalist Task Display -->
+  <div id="task-list">
+    <b>Active Bots:</b> <span id="tasks-output">None</span>
+  </div>
+
+  <!-- Bots Header -->
+  <div id="bots-header">
+    <h2>Deployed Bot Tabs</h2>
+  </div>
+
+  <!-- Bots grid: populated with selected markets only -->
+  <div id="bots">No markets selected.</div>
+  
+  <script>
+    const ansi_up = new AnsiUp();
+    ansi_up.use_classes = false;
+    ansi_up.escape_for_html = false;
+
+    // Global variables
+    let marketList = []; // Full list from /markets
+    const selectedMarkets = []; // Array to store selected market objects
+    const wsConnections = {};
+    const slugIndexMap = {};
+    let activeMarketSlugs = []; // List of active bot market slugs
+
+    // Persist selected markets to localStorage.
+    function saveSelectedMarkets() {
+      localStorage.setItem("selectedMarkets", JSON.stringify(selectedMarkets));
+    }
+    function loadSelectedMarkets() {
+      const saved = localStorage.getItem("selectedMarkets");
+      if (saved) {
+        try {
+          const arr = JSON.parse(saved);
+          if (Array.isArray(arr)) {
+            arr.forEach(item => {
+              if (item.market_slug && item.question && !selectedMarkets.find(m => m.market_slug === item.market_slug)) {
+                selectedMarkets.push(item);
+              }
+            });
+          }
+        } catch (e) {
+          console.error("Error parsing saved selected markets:", e);
+        }
+      }
+    }
+
+    // Fuzzy search function to query the backend for suggestions.
+    async function searchMarkets() {
+      const query = document.getElementById("search-input").value;
+      const suggestionsDiv = document.getElementById("suggestions");
+      if (!query) {
+        suggestionsDiv.innerHTML = "";
+        return;
+      }
+      try {
+        const response = await fetch(`http://localhost:8000/suggest_markets?query=${encodeURIComponent(query)}`);
+        const data = await response.json();
+        const suggestions = data.suggestions;
+        suggestionsDiv.innerHTML = "";
+        suggestions.forEach(suggestion => {
+          const div = document.createElement("div");
+          div.className = "suggestion";
+          div.textContent = suggestion.question;
+          div.onclick = () => {
+            if (!selectedMarkets.find(m => m.market_slug === suggestion.market_slug)) {
+              selectedMarkets.push(suggestion);
+              updateSelectedDisplay();
+              updateBotGrid();
+              saveSelectedMarkets();
+            }
+            document.getElementById("search-input").value = "";
+            suggestionsDiv.innerHTML = "";
+          };
+          suggestionsDiv.appendChild(div);
+        });
+      } catch (error) {
+        console.error("Error searching markets:", error);
+      }
+    }
+
+    // Update the display of selected markets as chips.
+    function updateSelectedDisplay() {
+      const selectedDiv = document.getElementById("selected-markets");
+      selectedDiv.innerHTML = "";
+      selectedMarkets.forEach(market => {
+        const chip = document.createElement("span");
+        chip.className = "chip";
+        chip.textContent = market.question;
+        // Only allow removal if this market's bot is inactive.
+        if (!activeMarketSlugs.includes(market.market_slug)) {
+          const removeBtn = document.createElement("span");
+          removeBtn.className = "remove";
+          removeBtn.textContent = " x";
+          removeBtn.onclick = () => {
+            const index = selectedMarkets.findIndex(m => m.market_slug === market.market_slug);
+            if (index !== -1) {
+              selectedMarkets.splice(index, 1);
+              updateSelectedDisplay();
+              updateBotGrid();
+              saveSelectedMarkets();
+            }
+          };
+          chip.appendChild(removeBtn);
+        }
+        selectedDiv.appendChild(chip);
+      });
+      updateClearInactiveButton();
+    }
+
+    // Enable or disable the "Clear Inactive Selections" button.
+    function updateClearInactiveButton() {
+      const clearBtn = document.getElementById("clear-inactive");
+      const inactive = selectedMarkets.filter(market => !activeMarketSlugs.includes(market.market_slug));
+      clearBtn.disabled = inactive.length === 0;
+    }
+
+    // Update the bots grid to display only the selected markets.
+    function updateBotGrid() {
+          const botsContainer = document.getElementById("bots");
+          botsContainer.innerHTML = "";
+          if (selectedMarkets.length === 0) {
+              botsContainer.textContent = "No markets selected.";
+              return;
+          }
+          selectedMarkets.forEach((market, index) => {
+              slugIndexMap[market.market_slug] = index + 1;
+          });
+          selectedMarkets.forEach((market, index) => {
+              const botSlug = market.market_slug;
+              const question = market.question;
+              const displayIndex = index + 1;
+              // Use the side field received from the backend.
+              const marketSide = market.side || "Unknown";
+              const container = document.createElement("div");
+              container.className = "bot";
+              container.id = `bot-${botSlug}`;
+              container.innerHTML = `
+                  <h2>Bot #${displayIndex}</h2>
+                  <p>${question}</p>
+                  <p>Market Side: <strong>${marketSide}</strong></p>
+                  <div class="status">Status: <span id="status-${botSlug}">Not Running</span></div>
+                  <div class="buttons">
+                    <button onclick="startBot('${botSlug}')">Start Bot</button>
+                    <button onclick="stopBot('${botSlug}')">Stop Bot</button>
+                    <button onclick="clearLogs('${botSlug}')">Clear Logs</button>
+                    <button onclick="exportLogs('${botSlug}')">Export Logs</button>
+                  </div>
+                  <h3>Logs:</h3>
+                  <pre class="log" id="log-${botSlug}">Waiting for logs...</pre>
+              `;
+              botsContainer.appendChild(container);
+              connectWebSocket(botSlug);
+          });
+      }
+
+    // Clear inactive selections.
+    function clearInactiveSelections() {
+      const beforeCount = selectedMarkets.length;
+      for (let i = selectedMarkets.length - 1; i >= 0; i--) {
+        const market = selectedMarkets[i];
+        if (!activeMarketSlugs.includes(market.market_slug)) {
+          selectedMarkets.splice(i, 1);
+        }
+      }
+      if (selectedMarkets.length < beforeCount) {
+        alert("Inactive selections cleared.");
+      }
+      updateSelectedDisplay();
+      updateBotGrid();
+      saveSelectedMarkets();
+    }
+
+    // Helper function to connect a WebSocket for a given bot.
+    function connectWebSocket(botSlug) {
+      const ws = new WebSocket(`ws://localhost:8000/ws/logs/${botSlug}`);
+      ws.onmessage = (event) => {
+        const html = ansi_up.ansi_to_html(event.data);
+        document.getElementById(`log-${botSlug}`).innerHTML = html;
+      };
+      ws.onclose = (event) => {
+        console.log(`WebSocket for ${botSlug} closed with code ${event.code}`);
+      };
+      wsConnections[botSlug] = ws;
+    }
+
+    // Helper function to call API endpoints.
+    async function callAPI(url, method = "POST") {
+      try {
+        const response = await fetch(url, { method });
+        const data = await response.json();
+        alert(data.status || data.detail);
+      } catch (error) {
+        alert("Error: " + error);
+      }
+    }
+
+    function startBot(botSlug) {
+      callAPI(`http://localhost:8000/start_bot/${botSlug}`);
+    }
+    
+    function stopBot(botSlug) {
+      callAPI(`http://localhost:8000/stop_bot/${botSlug}`);
+    }
+    
+    // Global start/stop for confirmed bots.
+    function startAll() {
+      const confirmed = selectedMarkets.map(m => m.market_slug);
+      fetch("http://localhost:8000/start_all", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(confirmed)
+      })
+      .then(response => response.json())
+      .then(data => alert(data.status || data.detail))
+      .catch(error => alert("Error: " + error));
+    }
+    
+    function stopAll() {
+      const confirmed = selectedMarkets.map(m => m.market_slug);
+      fetch("http://localhost:8000/stop_all", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(confirmed)
+      })
+      .then(response => response.json())
+      .then(data => alert(data.status || data.detail))
+      .catch(error => alert("Error: " + error));
+    }
+    
+    async function checkTasks() {
+      try {
+        const response = await fetch("http://localhost:8000/tasks");
+        const data = await response.json();
+        activeMarketSlugs = data.tasks;
+        const activeCount = data.tasks.filter(slug => selectedMarkets.find(m => m.market_slug === slug)).length;
+        document.getElementById("tasks-output").textContent = activeCount + "/" + selectedMarkets.length;
+        // Update each bot's status indicator.
+        selectedMarkets.forEach(market => {
+          const statusElem = document.getElementById(`status-${market.market_slug}`);
+          if (statusElem) {
+            if (activeMarketSlugs.includes(market.market_slug)) {
+              statusElem.textContent = "Running";
+              statusElem.style.color = "lime";
+            } else {
+              statusElem.textContent = "Not Running";
+              statusElem.style.color = "red";
+            }
+          }
+        });
+        updateSelectedDisplay();
+      } catch (error) {
+        console.error("Error checking tasks:", error);
+        document.getElementById("tasks-output").textContent = "Error fetching tasks";
+      }
+    }
+    
+    async function shutdownServer() {
+      try {
+        const response = await fetch("http://localhost:8000/shutdown", { method: "POST" });
+        const data = await response.json();
+        alert(data.status || data.detail);
+      } catch (error) {
+        alert("Error: " + error);
+      }
+    }
+    
+    // Clear logs (only if bot is stopped).
+    function clearLogs(botSlug) {
+      if (activeMarketSlugs.includes(botSlug)) {
+        alert("Cannot clear logs while bot is running. Please stop the bot first.");
+        return;
+      }
+      fetch(`http://localhost:8000/clear_logs/${botSlug}`, { method: "POST" })
+        .then(response => response.json())
+        .then(data => {
+          const logElem = document.getElementById(`log-${botSlug}`);
+          if (logElem) {
+            logElem.innerHTML = "Logs cleared.";
+          }
+          alert(data.status || data.detail);
+        })
+        .catch(error => alert("Error clearing logs: " + error));
+    }
+    
+    function exportLogs(botSlug) {
+  const logElem = document.getElementById(`log-${botSlug}`);
+  if (logElem) {
+    const logs = logElem.textContent;
+    const now = new Date();
+    // Format the current time in Romania time (Europe/Bucharest)
+    const options = { 
+      year: 'numeric', 
+      month: '2-digit', 
+      day: '2-digit', 
+      hour: '2-digit', 
+      minute: '2-digit', 
+      second: '2-digit', 
+      hour12: false, 
+      timeZone: 'Europe/Bucharest'
+    };
+    // Using Swedish locale to get YYYY-MM-DD format; then replace space with an underscore
+    const romaniaTime = new Intl.DateTimeFormat('sv-SE', options)
+      .format(now)
+      .replace(" ", "_")
+      .replace(/:/g, "-");
+    const filename = `logs_${botSlug}_${romaniaTime}.txt`;
+    const blob = new Blob([logs], { type: 'text/plain' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  }
+}
+    
+    setInterval(checkTasks, 2000);
+    
+    async function loadMarketList() {
+      try {
+        const response = await fetch("http://localhost:8000/markets");
+        const data = await response.json();
+        marketList = data.markets;
+      } catch (error) {
+        console.error("Error loading market list:", error);
+      }
+    }
+
+    // This function updates the "side" field for each selected market.
+    async function refreshSelectedMarketsSide() {
+      try {
+        const response = await fetch("http://localhost:8000/markets");
+        const data = await response.json();
+        // Build a lookup mapping market_slug to side.
+        const marketSideMap = {};
+        data.markets.forEach(market => {
+          marketSideMap[market.market_slug] = market.side;
+        });
+        // Update the side for each market already selected.
+        selectedMarkets.forEach(market => {
+          market.side = marketSideMap[market.market_slug] || market.side;
+        });
+        updateBotGrid();
+      } catch (error) {
+        console.error("Error refreshing market sides:", error);
+      }
+    }
+ 
+    // Restore selected markets from localStorage.
+    function restoreSelectedMarkets() {
+      const saved = localStorage.getItem("selectedMarkets");
+      if (saved) {
+        try {
+          const arr = JSON.parse(saved);
+          if (Array.isArray(arr)) {
+            arr.forEach(item => {
+              if (item.market_slug && item.question && !selectedMarkets.find(m => m.market_slug === item.market_slug)) {
+                selectedMarkets.push(item);
+              }
+            });
+          }
+        } catch (e) {
+          console.error("Error parsing saved selected markets:", e);
+        }
+      }
+    }
+    
+    window.onload = async () => {
+      await loadMarketList();
+      restoreSelectedMarkets();  // Loads from localStorage
+      updateSelectedDisplay();
+      updateBotGrid();
+      // Now refresh the side information for selected markets
+      await refreshSelectedMarketsSide();
+    };
+  </script>
+  <script>
+    // Restore active bots on page load.
+    async function restoreActiveBots() {
+      try {
+        const response = await fetch("http://localhost:8000/tasks");
+        const data = await response.json();
+        activeMarketSlugs = data.tasks;
+        updateSelectedDisplay();
+      } catch (error) {
+        console.error("Error restoring active bots:", error);
+      }
+    }
+    
+    setInterval(restoreActiveBots, 2000);
+  </script>
+</body>
+</html>

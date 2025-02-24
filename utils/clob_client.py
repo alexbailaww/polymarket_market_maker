@@ -1,6 +1,8 @@
 import os
 from dotenv import set_key, load_dotenv
 
+from rich import print
+
 from py_clob_client.client import ClobClient
 from py_clob_client.clob_types import ApiCreds
 from py_clob_client.constants import POLYGON
@@ -27,7 +29,7 @@ def create_client():
 
     client = ClobClient(host, key = key, chain_id = chain_id, creds = creds)
 
-    print('CLOB Client initialized.')
+    print('[green]CLOB Client initialized.\n[/green]')
 
     return client
 
@@ -39,7 +41,7 @@ def generate_api_keys():
     chain_id = 137  
     
     if not key:
-        raise ValueError("Private key not found. Please set PK in the environment variables.")
+        raise ValueError("[red]Private key not found. Please set PK in the environment variables.[/red]")
     
     client = ClobClient(host, key=key, chain_id=chain_id)
     try:
@@ -52,7 +54,7 @@ def generate_api_keys():
         set_key(env_path, 'CLOB_SECRET', api_creds.api_secret)
         set_key(env_path, 'CLOB_PASS_PHRASE', api_creds.api_passphrase)
 
-        print("API credentials created.")
+        print("[green]API credentials created.\n[/green]")
 
     except Exception as e:
-        print("Error creating or deriving API credentials:", e)
+        print("[red]Error creating or deriving API credentials:[/red]", e)

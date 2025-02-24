@@ -5,8 +5,15 @@ from typing import Literal
 
 from py_clob_client.clob_types import  OrderArgs
 
+from ratelimit import limits, sleep_and_retry
+
+# 80 calls per 10 seconds
+CALLS = 80
+PERIOD = 10
+
+@sleep_and_retry
+@limits(calls=CALLS, period=PERIOD)
 def create_and_submit_order(client, token_id, side: Literal['BUY'] | Literal['SELL'], price, size):
-    # Create and sign a limit order buying 100 YES tokens for 0.0005 each
     order_args = OrderArgs(
         price=price,
         size=size,
@@ -17,13 +24,17 @@ def create_and_submit_order(client, token_id, side: Literal['BUY'] | Literal['SE
     resp = client.post_order(signed_order)
     print(f'Order created. Logs: {resp}')
 
+@sleep_and_retry
+@limits(calls=CALLS, period=PERIOD)
 def cancel_order(client, orderID):
     resp = client.cancel(order_id=orderID)
-    if not resp['not_cancelled']:
+    if not resp['not_canceled']:
         print(f'Order cancelled.')
     else:
         print(f'Order could not be cancelled. Logs: {resp['not_canceled']}')
 
+@sleep_and_retry
+@limits(calls=CALLS, period=PERIOD)
 def cancel_orders(client, orderIDs):
     resp = client.cancel_orders(orderIDs)
     if not resp['not_canceled']:
@@ -31,6 +42,17 @@ def cancel_orders(client, orderIDs):
     else:
         print(f'Some orders could not be cancelled. Logs: {resp['not_canceled']}')
 
+@sleep_and_retry
+@limits(calls=CALLS, period=PERIOD)
+def cancel_market_orders(client, marketID, tokenID):
+    resp = client.cancel_market_orders(market = marketID, asset_id = tokenID)
+    if not resp['not_canceled']:
+        print(f'All orders from market #{tokenID} have been cancelled.')
+    else:
+        print(f'Some orders could not be cancelled. Logs: {resp['not_canceled']}')
+
+@sleep_and_retry
+@limits(calls=CALLS, period=PERIOD)
 def cancel_all_orders(client):
     resp = client.cancel_all()
     if not resp['not_canceled']:
@@ -38,20 +60,25 @@ def cancel_all_orders(client):
     else:
         print(f'Some orders could not be cancelled. Logs: {resp['not_canceled']}')
 
+@sleep_and_retry
+@limits(calls=CALLS, period=PERIOD)
 def get_order(client, orderID):
     order = client.get_order(orderID)
     print(f'Order retrieved.')
 
     return order
 
+@sleep_and_retry
+@limits(calls=CALLS, period=PERIOD)
 def get_orders_scorings(client, orderIDs):
     scorings = client.are_orders_scoring(OrdersScoringParams(orderIds=orderIDs))
     print(f'Order scoring for orders {orderIDs} retrieved.')
 
     return scorings
 
+@sleep_and_retry
+@limits(calls=CALLS, period=PERIOD)
 def get_market_active_orders(client, market_id):
     resp = client.get_orders(OpenOrderParams(market=market_id,))
-    print(f'Orders from Market #{market_id} retrieved.')   
 
     return resp   

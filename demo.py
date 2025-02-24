@@ -1,4 +1,4 @@
-from utils import market, order, allowance, api
+from utils import clob_client, market, order, allowance, positions
 import json
 
 from py_clob_client.order_builder.constants import BUY, SELL
@@ -7,25 +7,40 @@ from py_clob_client.order_builder.constants import BUY, SELL
 # allowance.set_allowances()
 # api.generate_api_keys()
 
-bot = api.create_client()
+bot = clob_client.create_client()
 
-# markets = market.fetch_all(bot)
+sampling_markets = market.get_sampling_all(bot)
+activeMarkets = 0
+closedMarkets = 0
+
+for elem in sampling_markets:
+    if elem['active']:
+        activeMarkets += 1
+    else:
+        closedMarkets += 1
+
+print(f'Sampling Markets: {len(sampling_markets)}\nActive Markets: {activeMarkets}\nClosed Markets: {closedMarkets}\n')
+
+# print(json.dumps(sampling_markets, indent = 4))
+
+# markets = market.get_all(bot)
+# print(json.dumps(markets[55], indent = 4))
 
 
-# for elem in markets:
-#     if 'win the Romanian presidential election?' in elem['question']:
-#         print(f'{json.dumps(elem, indent =4)}\n\n')
+# # for elem in markets:
+# #     if 'win the Romanian presidential election?' in elem['question']:
+# #         print(f'{json.dumps(elem, indent =4)}\n\n')
 
-# print(market.fetch_all(bot))
+# # print(market.fetch_all(bot))
 
-# demo_market1 = 'Will C\u0103lin Georgescu win the Romanian presidential election?'
+# demo_market1 = 'Will Manchester City win the UEFA Champions League?'
 # demo_market_obj1 = market.fetch_single(bot, demo_market1)
 
-# demo_market2 = 'Yoon out as president of South Korea before April?'
-# demo_market_obj2 = market.fetch_single(bot, demo_market2)
+# demo_market2 = 'Will Manchester City win the UEFA Champions League?'
+# demo_market_obj2 = market.get_single_byName(bot, demo_market2)
 
-# print(json.dumps(demo_market_obj1, indent = 4))
-# print(f'Looking into event: \'{demo_market1}\'\n')
+# print(json.dumps(demo_market_obj2, indent = 4))
+# print(f'Looking into event: \'{demo_market2}\'\n')
 
 # print(json.dumps(demo_market_obj2, indent = 4))
 # print(f'Looking into event: \'{demo_market2}\'\n')
@@ -33,26 +48,26 @@ bot = api.create_client()
 # order_type = input(f'Choose order type (Buy / Sell): ')
 # choice = input('Choose token (Yes / No): ')
 
-# print(f'Filling order in...\n{demo_market} -> {order_type} {choice}')
+# # print(f'Filling order in...\n{demo_market} -> {order_type} {choice}')
 
-# token = next((item for item in demo_market_obj1['tokens'] if item.get('outcome') == 'Yes'), None)
-# order.create_and_submit_order(bot, token['token_id'], BUY, 0.150, 5)
+# # token = next((item for item in demo_market_obj1['tokens'] if item.get('outcome') == 'Yes'), None)
+# # order.create_and_submit_order(bot, token['token_id'], BUY, 0.150, 5)
 
-# token = next((item for item in demo_market_obj2['tokens'] if item.get('outcome') == 'No'), None)
+# token = next((item for item in demo_market_obj2['tokens'] if item.get('outcome') == 'Yes'), None)
 # order.create_and_submit_order(bot, token['token_id'], BUY, 0.10, 5)
 
-order.cancel_all_orders(bot)
+# # order.cancel_all_orders(bot)
 
-# token_id = '45714870634090908403813747458214625542376052548606303175331201110938821302832'
+# # token_id = '45714870634090908403813747458214625542376052548606303175331201110938821302832'
 
-# signed_order = order.create_buy_order(bot_client, 0.10, 1, token_id)
+# # signed_order = order.create_buy_order(bot_client, 0.10, 1, token_id)
 
-# print(signed_order.order)
-# resp = order.post_order(bot_client, signed_order)
-# print(resp)
+# # print(signed_order.order)
+# # resp = order.post_order(bot_client, signed_order)
+# # print(resp)
 
-# markets_total = market.fetch_all(bot_client)
-# print(f'Total Markets fetched by API: {len(markets_total)}\n')
-# daily_possible_rewards = market.total_possible_rewards(bot_client)
+# # markets_total = market.fetch_all(bot_client)
+# # print(f'Total Markets fetched by API: {len(markets_total)}\n')
+# # daily_possible_rewards = market.total_possible_rewards(bot_client)
 
-# print(f'Max rewards today:\nNormal rate (1.5%): {daily_possible_rewards / 66} $\nGood (5%) rate: {daily_possible_rewards / 20} $\nTotal (100%) rate: {daily_possible_rewards} $\n')
+# # print(f'Max rewards today:\nNormal rate (1.5%): {daily_possible_rewards / 66} $\nGood (5%) rate: {daily_possible_rewards / 20} $\nTotal (100%) rate: {daily_possible_rewards} $\n')
