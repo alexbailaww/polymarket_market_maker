@@ -7,6 +7,9 @@ from py_clob_client.client import ClobClient
 from py_clob_client.clob_types import ApiCreds
 from py_clob_client.constants import POLYGON
 
+from api_usage import track_api_usage
+
+@track_api_usage
 def create_client():
     load_dotenv()
 
@@ -33,6 +36,7 @@ def create_client():
 
     return client
 
+@track_api_usage
 def generate_api_keys():
     load_dotenv()
 

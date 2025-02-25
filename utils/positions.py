@@ -3,8 +3,11 @@ import json
 import os
 from dotenv import load_dotenv
 
+from api_usage import track_api_usage
+
 load_dotenv()
 
+@track_api_usage
 def get_positions():
     url = "https://data-api.polymarket.com/positions"
     params = {"user": os.getenv('PPA')}

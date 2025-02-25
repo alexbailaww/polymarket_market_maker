@@ -1,0 +1,1 @@
+bot_event_queues = {}

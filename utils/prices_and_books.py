@@ -2,6 +2,8 @@ from py_clob_client.clob_types import BookParams
 
 from ratelimit import limits, sleep_and_retry
 
+from api_usage import track_api_usage
+
 # 80 calls per 10 seconds
 CALLS = 80
 PERIOD = 10
@@ -13,6 +15,7 @@ def chunker(lst, batch_size):
         yield lst[i:i + batch_size]
 # ##########################################
 
+@track_api_usage
 @sleep_and_retry
 @limits(calls=CALLS, period=PERIOD)
 def get_order_book(client, tokenID):
@@ -21,6 +24,7 @@ def get_order_book(client, tokenID):
 
     return order_book
 
+@track_api_usage
 @sleep_and_retry
 @limits(calls=CALLS, period=PERIOD)
 def get_order_books(client, tokenIDs):
@@ -31,6 +35,7 @@ def get_order_books(client, tokenIDs):
 
     return order_books
 
+@track_api_usage
 @sleep_and_retry
 @limits(calls=CALLS, period=PERIOD)
 def get_all_order_books(client, tokenIDs):
@@ -43,6 +48,7 @@ def get_all_order_books(client, tokenIDs):
 
     return order_books
 
+@track_api_usage
 @sleep_and_retry
 @limits(calls=CALLS, period=PERIOD)
 def get_market_price(client, tokenID):
@@ -56,6 +62,7 @@ def get_market_price(client, tokenID):
 
     return market_price
 
+@track_api_usage
 @sleep_and_retry
 @limits(calls=CALLS, period=PERIOD)
 def get_market_midpoint_price(client, tokenID, side):
@@ -64,6 +71,7 @@ def get_market_midpoint_price(client, tokenID, side):
 
     return market_midpoint_price
 
+@track_api_usage
 @sleep_and_retry
 @limits(calls=CALLS, period=PERIOD)
 def get_market_spread(client, tokenID):
@@ -72,6 +80,7 @@ def get_market_spread(client, tokenID):
 
     return market_spread
 
+@track_api_usage
 @sleep_and_retry
 @limits(calls=CALLS, period=PERIOD)
 def get_market_spreads(client, tokenIDs):
@@ -82,6 +91,7 @@ def get_market_spreads(client, tokenIDs):
 
     return order_books
 
+@track_api_usage
 @sleep_and_retry
 @limits(calls=CALLS, period=PERIOD)
 def get_all_market_spreads(client, tokenIDs):

@@ -3,11 +3,13 @@ import json
 import os
 
 from ratelimit import limits, sleep_and_retry
+from api_usage import track_api_usage
 
 # 80 calls per 10 seconds
 CALLS = 80
 PERIOD = 10
 
+@track_api_usage
 @sleep_and_retry
 @limits(calls=CALLS, period=PERIOD)
 def get_all(client):
@@ -37,6 +39,7 @@ def get_all(client):
 
     return markets_list
 
+@track_api_usage
 @sleep_and_retry
 @limits(calls=CALLS, period=PERIOD)
 def get_sampling_all(client):
@@ -66,6 +69,7 @@ def get_sampling_all(client):
 
     return markets_list
 
+@track_api_usage
 @sleep_and_retry
 @limits(calls=CALLS, period=PERIOD)
 def get_single_byName(client, market_name):
@@ -77,6 +81,7 @@ def get_single_byName(client, market_name):
     
     return
 
+@track_api_usage
 @sleep_and_retry
 @limits(calls=CALLS, period=PERIOD)
 def get_single_byCondition(client, conditionID):
@@ -86,6 +91,7 @@ def get_single_byCondition(client, conditionID):
     else:
         return resp['data']
     
+@track_api_usage
 @sleep_and_retry
 @limits(calls=CALLS, period=PERIOD)
 def get_single_byToken(client, tokenID):
@@ -96,6 +102,7 @@ def get_single_byToken(client, tokenID):
         if tokenID == market['tokens'][1]['token_id']:
             return {"question": market['question'], "answer": market['tokens'][1]['outcome']}
 
+@track_api_usage
 @sleep_and_retry
 @limits(calls=CALLS, period=PERIOD)
 def total_possible_rewards(client):

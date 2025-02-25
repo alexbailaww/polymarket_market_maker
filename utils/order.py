@@ -6,11 +6,13 @@ from typing import Literal
 from py_clob_client.clob_types import  OrderArgs
 
 from ratelimit import limits, sleep_and_retry
+from api_usage import track_api_usage
 
 # 80 calls per 10 seconds
 CALLS = 80
 PERIOD = 10
 
+@track_api_usage
 @sleep_and_retry
 @limits(calls=CALLS, period=PERIOD)
 def create_and_submit_order(client, token_id, side: Literal['BUY'] | Literal['SELL'], price, size):
@@ -24,6 +26,7 @@ def create_and_submit_order(client, token_id, side: Literal['BUY'] | Literal['SE
     resp = client.post_order(signed_order)
     print(f'Order created. Logs: {resp}')
 
+@track_api_usage
 @sleep_and_retry
 @limits(calls=CALLS, period=PERIOD)
 def cancel_order(client, orderID):
@@ -33,6 +36,7 @@ def cancel_order(client, orderID):
     else:
         print(f'Order could not be cancelled. Logs: {resp['not_canceled']}')
 
+@track_api_usage
 @sleep_and_retry
 @limits(calls=CALLS, period=PERIOD)
 def cancel_orders(client, orderIDs):
@@ -42,6 +46,7 @@ def cancel_orders(client, orderIDs):
     else:
         print(f'Some orders could not be cancelled. Logs: {resp['not_canceled']}')
 
+@track_api_usage
 @sleep_and_retry
 @limits(calls=CALLS, period=PERIOD)
 def cancel_market_orders(client, marketID, tokenID):
@@ -51,6 +56,7 @@ def cancel_market_orders(client, marketID, tokenID):
     else:
         print(f'Some orders could not be cancelled. Logs: {resp['not_canceled']}')
 
+@track_api_usage
 @sleep_and_retry
 @limits(calls=CALLS, period=PERIOD)
 def cancel_all_orders(client):
@@ -60,6 +66,7 @@ def cancel_all_orders(client):
     else:
         print(f'Some orders could not be cancelled. Logs: {resp['not_canceled']}')
 
+@track_api_usage
 @sleep_and_retry
 @limits(calls=CALLS, period=PERIOD)
 def get_order(client, orderID):
@@ -68,6 +75,7 @@ def get_order(client, orderID):
 
     return order
 
+@track_api_usage
 @sleep_and_retry
 @limits(calls=CALLS, period=PERIOD)
 def get_orders_scorings(client, orderIDs):
@@ -76,6 +84,7 @@ def get_orders_scorings(client, orderIDs):
 
     return scorings
 
+@track_api_usage
 @sleep_and_retry
 @limits(calls=CALLS, period=PERIOD)
 def get_market_active_orders(client, market_id):

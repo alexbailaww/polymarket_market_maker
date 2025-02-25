@@ -9,17 +9,12 @@ from py_clob_client.order_builder.constants import BUY, SELL
 
 bot = clob_client.create_client()
 
-sampling_markets = market.get_sampling_all(bot)
-activeMarkets = 0
-closedMarkets = 0
+mkt = market.get_single_byName(bot, 'Will Kanye launch a coin in February?')
 
-for elem in sampling_markets:
-    if elem['active']:
-        activeMarkets += 1
-    else:
-        closedMarkets += 1
+print(json.dumps(order.get_market_active_orders(bot, mkt['condition_id']), indent = 4))
 
-print(f'Sampling Markets: {len(sampling_markets)}\nActive Markets: {activeMarkets}\nClosed Markets: {closedMarkets}\n')
+
+# print(f'Sampling Markets: {len(sampling_markets)}\nActive Markets: {activeMarkets}\nClosed Markets: {closedMarkets}\n')
 
 # print(json.dumps(sampling_markets, indent = 4))
 
