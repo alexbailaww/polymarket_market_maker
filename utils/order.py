@@ -34,7 +34,7 @@ def cancel_order(client, orderID):
     if not resp['not_canceled']:
         print(f'Order cancelled.')
     else:
-        print(f'Order could not be cancelled. Logs: {resp['not_canceled']}')
+        print(f'Order could not be cancelled. Logs: {resp["not_canceled"]}')
 
 @track_api_usage
 @sleep_and_retry
@@ -44,7 +44,7 @@ def cancel_orders(client, orderIDs):
     if not resp['not_canceled']:
         print(f'All orders have been cancelled.')
     else:
-        print(f'Some orders could not be cancelled. Logs: {resp['not_canceled']}')
+        print(f'Some orders could not be cancelled. Logs: {resp["not_canceled"]}')
 
 @track_api_usage
 @sleep_and_retry
@@ -54,7 +54,7 @@ def cancel_market_orders(client, marketID, tokenID):
     if not resp['not_canceled']:
         print(f'All orders from market #{tokenID} have been cancelled.')
     else:
-        print(f'Some orders could not be cancelled. Logs: {resp['not_canceled']}')
+        print(f'Some orders could not be cancelled. Logs: {resp["not_canceled"]}')
 
 @track_api_usage
 @sleep_and_retry
@@ -64,7 +64,7 @@ def cancel_all_orders(client):
     if not resp['not_canceled']:
         print(f'All orders have been cancelled.')
     else:
-        print(f'Some orders could not be cancelled. Logs: {resp['not_canceled']}')
+        print(f'Some orders could not be cancelled. Logs: {resp["not_canceled"]}')
 
 @track_api_usage
 @sleep_and_retry
