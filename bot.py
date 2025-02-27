@@ -101,7 +101,11 @@ async def run_async_bot_bidAndTick(client, market):
                         f"[bold green]Placing initial order[/bold green] at price [bold cyan]{current_order_price:3f}[/bold cyan] for [bold cyan]{order_qty}[/bold cyan] shares. Total: [bold cyan]{order_qty * current_order_price:3f}[/bold cyan]",
                         extra={"bot_slug": market_slug})
                     # Uncomment when ready:
-                    await create_and_submit_order(client, token_id, 'BUY', current_order_price, order_qty)
+                    print(f'Token ID: {token_id}')
+                    print(f'Order Type: BUY')
+                    print(f'Order Price: {current_order_price}')
+                    print(f'Order Quantity: {order_qty}')
+                    create_and_submit_order(client, token_id, 'BUY', current_order_price, order_qty)                    
                     initial_order_placed = True
                     current_order_quantity = order_qty
                 else:
@@ -122,12 +126,12 @@ async def run_async_bot_bidAndTick(client, market):
                                     f"[bold yellow]Cancelling order[/bold yellow] ID {current_buy_order['id']} due to best bid change.",
                                     extra={"bot_slug": market_slug})
                                 # Uncomment when ready:
-                                await cancel_order(client, current_buy_order['id'])
+                                cancel_order(client, current_buy_order['id'])
                             logging.info(
                                 f"[bold yellow]Placing new order[/bold yellow] at price [bold cyan]{new_order_price:3f}[/bold cyan] for [bold cyan]{order_qty}[/bold cyan] shares. Total: [bold cyan]{order_qty * new_order_price:3f}[/bold cyan]",
                                 extra={"bot_slug": market_slug})
                             # Uncomment when ready:
-                            await create_and_submit_order(client, token_id, 'BUY', new_order_price, order_qty)
+                            create_and_submit_order(client, token_id, 'BUY', new_order_price, order_qty)
                             current_order_price = new_order_price
                             current_order_quantity = order_qty
                         else:
@@ -158,12 +162,12 @@ async def run_async_bot_bidAndTick(client, market):
                                     f"[bold yellow]Cancelling order[/bold yellow] ID {current_buy_order['id']} due to tick size change.",
                                     extra={"bot_slug": market_slug})
                                 # Uncomment when ready:
-                                await cancel_order(client, current_buy_order['id'])
+                                cancel_order(client, current_buy_order['id'])
                             logging.info(
                                 f"[bold yellow]Placing new order[/bold yellow] at price [bold cyan]{new_order_price:3f}[/bold cyan] for [bold cyan]{order_qty}[/bold cyan] shares. Total: [bold cyan]{order_qty * new_order_price:3f}[/bold cyan]",
                                 extra={"bot_slug": market_slug})
                             # Uncomment when ready:
-                            await create_and_submit_order(client, token_id, 'BUY', new_order_price, order_qty)
+                            create_and_submit_order(client, token_id, 'BUY', new_order_price, order_qty)
                             current_order_price = new_order_price
                             current_order_quantity = order_qty
                         else:
@@ -199,12 +203,12 @@ async def run_async_bot_bidAndTick(client, market):
                         f"[bold yellow]Cancelling order[/bold yellow] ID {current_buy_order['id']} due to quantity update.",
                         extra={"bot_slug": market_slug})
                     # Uncomment when ready:
-                    await cancel_order(client, current_buy_order['id'])
+                    cancel_order(client, current_buy_order['id'])
                 logging.info(
                     f"[bold yellow]Placing updated order[/bold yellow] at price [bold cyan]{current_order_price:3f}[/bold cyan] for [bold cyan]{updated_qty}[/bold cyan] shares. Total: [bold cyan]{updated_qty * current_order_price:3f}[/bold cyan]",
                     extra={"bot_slug": market_slug})
                 # Uncomment when ready:
-                await create_and_submit_order(client, token_id, 'BUY', current_order_price, updated_qty)
+                create_and_submit_order(client, token_id, 'BUY', current_order_price, updated_qty)
                 current_order_quantity = updated_qty
 
     except KeyboardInterrupt:
