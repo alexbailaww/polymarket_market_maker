@@ -10,7 +10,8 @@ import time
 from bot_manager import BotManager
 from utils.order import cancel_all_orders, cancel_order, get_market_active_orders
 from utils.clob_client import create_client
-from utils.balance import fetch_allowance, fetch_balance
+from utils.balance import fetch_balance
+from utils.allowance import fetch_allowance
 from utils.market import get_single_byName, get_sampling_all
 from rich.logging import RichHandler
 from rich import print

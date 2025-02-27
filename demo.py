@@ -1,17 +1,19 @@
-from utils import clob_client, market, order, allowance, positions
+from utils import clob_client, market, order, allowance, positions, balance
 import json
 
 from py_clob_client.order_builder.constants import BUY, SELL
 
 # run whenever needed
 # allowance.set_allowances()
-# api.generate_api_keys()
+# clob_client.generate_api_keys()
+print(balance.fetch_balance())
 
 bot = clob_client.create_client()
+order.cancel_all_orders(bot)
 
-mkt = market.get_single_byName(bot, 'Will Kanye launch a coin in February?')
+# mkt = market.get_single_byName(bot, 'Will Kanye launch a coin in February?')
 
-print(json.dumps(order.get_market_active_orders(bot, mkt['condition_id']), indent = 4))
+# print(json.dumps(order.get_market_active_orders(bot, mkt['condition_id']), indent = 4))
 
 
 # print(f'Sampling Markets: {len(sampling_markets)}\nActive Markets: {activeMarkets}\nClosed Markets: {closedMarkets}\n')

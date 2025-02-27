@@ -43,7 +43,7 @@ def set_allowances():
     signed_usdc_approve_tx = web3.eth.account.sign_transaction(raw_usdc_approve_txn, private_key=priv_key)
     send_usdc_approve_tx = web3.eth.send_raw_transaction(signed_usdc_approve_tx.raw_transaction)
     usdc_approve_tx_receipt = web3.eth.wait_for_transaction_receipt(send_usdc_approve_tx, 600)
-    print(usdc_approve_tx_receipt)
+    # print(usdc_approve_tx_receipt)
 
     nonce = web3.eth.get_transaction_count(pub_key)
 
@@ -51,7 +51,7 @@ def set_allowances():
     signed_ctf_approval_tx = web3.eth.account.sign_transaction(raw_ctf_approval_txn, private_key=priv_key)
     send_ctf_approval_tx = web3.eth.send_raw_transaction(signed_ctf_approval_tx.raw_transaction)
     ctf_approval_tx_receipt = web3.eth.wait_for_transaction_receipt(send_ctf_approval_tx, 600)
-    print(ctf_approval_tx_receipt)
+    # print(ctf_approval_tx_receipt)
 
     nonce = web3.eth.get_transaction_count(pub_key)
 
@@ -61,7 +61,7 @@ def set_allowances():
     signed_usdc_approve_tx = web3.eth.account.sign_transaction(raw_usdc_approve_txn, private_key=priv_key)
     send_usdc_approve_tx = web3.eth.send_raw_transaction(signed_usdc_approve_tx.raw_transaction)
     usdc_approve_tx_receipt = web3.eth.wait_for_transaction_receipt(send_usdc_approve_tx, 600)
-    print(usdc_approve_tx_receipt)
+    # print(usdc_approve_tx_receipt)
 
     nonce = web3.eth.get_transaction_count(pub_key)
 
@@ -69,7 +69,7 @@ def set_allowances():
     signed_ctf_approval_tx = web3.eth.account.sign_transaction(raw_ctf_approval_txn, private_key=priv_key)
     send_ctf_approval_tx = web3.eth.send_raw_transaction(signed_ctf_approval_tx.raw_transaction)
     ctf_approval_tx_receipt = web3.eth.wait_for_transaction_receipt(send_ctf_approval_tx, 600)
-    print(ctf_approval_tx_receipt)
+    # print(ctf_approval_tx_receipt)
 
     nonce = web3.eth.get_transaction_count(pub_key)
 
@@ -79,7 +79,7 @@ def set_allowances():
     signed_usdc_approve_tx = web3.eth.account.sign_transaction(raw_usdc_approve_txn, private_key=priv_key)
     send_usdc_approve_tx = web3.eth.send_raw_transaction(signed_usdc_approve_tx.raw_transaction)
     usdc_approve_tx_receipt = web3.eth.wait_for_transaction_receipt(send_usdc_approve_tx, 600)
-    print(usdc_approve_tx_receipt)
+    # print(usdc_approve_tx_receipt)
 
     nonce = web3.eth.get_transaction_count(pub_key)
 
@@ -87,7 +87,7 @@ def set_allowances():
     signed_ctf_approval_tx = web3.eth.account.sign_transaction(raw_ctf_approval_txn, private_key=priv_key)
     send_ctf_approval_tx = web3.eth.send_raw_transaction(signed_ctf_approval_tx.raw_transaction)
     ctf_approval_tx_receipt = web3.eth.wait_for_transaction_receipt(send_ctf_approval_tx, 600)
-    print(ctf_approval_tx_receipt)
+    # print(ctf_approval_tx_receipt)
 
 def fetch_allowance():
     load_dotenv()
