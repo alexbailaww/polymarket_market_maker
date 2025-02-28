@@ -510,7 +510,18 @@
       const ws = new WebSocket(`ws://localhost:8000/ws/logs/${botSlug}`);
       ws.onmessage = (event) => {
         const html = ansi_up.ansi_to_html(event.data);
-        document.getElementById(`log-${botSlug}`).innerHTML = html;
+        const logElement = document.getElementById(`log-${botSlug}`);
+        logElement.innerHTML = html;
+        
+        // Check if the log message indicates a fill event and shutdown.
+        // For example, if it contains both "filled" and "shutting down bot"
+        if (html.toLowerCase().includes("filled") && html.toLowerCase().includes("shutting down bot")) {
+          // Change the background of the corresponding bot card.
+          const botContainer = document.getElementById(`bot-${botSlug}`);
+          if (botContainer) {
+            botContainer.style.backgroundColor = "#330000"; // very dark red
+          }
+        }
       };
       ws.onclose = (event) => {
         console.log(`WebSocket for ${botSlug} closed with code ${event.code}`);
