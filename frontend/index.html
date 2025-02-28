@@ -252,6 +252,10 @@
     <img src="https://images.crunchbase.com/image/upload/c_pad,f_auto,q_auto:eco,dpr_1/radxv99bd8jwiuqwxt95" alt="PolyMarket Logo">
     <h1>3b3c Bot Farm</h1>
   </header>
+  <div id="balance-container" style="text-align: center; margin-bottom: 20px;">
+    <span style="font-size: 1.2em;">Balance (USDC.E): </span>
+    <span id="balance-display" style="font-size: 1.2em; font-weight: bold;">Loading...</span>
+  </div>  
 
   <div style="display: flex; flex-direction: column; align-items: center; margin: 20px 0;">
     <label for="api-usage-progress" style="font-weight: 500; color: #ccc; margin-bottom: 8px; font-size: 1rem;">
@@ -413,7 +417,7 @@
         const removeButtonHtml = activeMarketSlugs.includes(botSlug)
           ? ""
           : `<span class="remove-bot" style="position: absolute; top: 5px; right: 5px; cursor: pointer; font-size: 1.2em; color: #e0e0e0;" onclick="removeBot('${botSlug}')">&times;</span>`;
-
+        
         const container = document.createElement("div");
         container.className = "bot";
         container.id = `bot-${botSlug}`;
@@ -444,6 +448,7 @@
 
     // New function: prompt user to update order quantity.
     async function updateOrderQuantity(botSlug) {
+      // Prompt the user for a new quantity.
       let newQuantity = prompt("Enter new order quantity (in shares). It must be at least the minimum order size.");
       if (!newQuantity) return;
       newQuantity = parseFloat(newQuantity);
@@ -451,6 +456,7 @@
         alert("Invalid quantity.");
         return;
       }
+      
       try {
         const response = await fetch(`http://localhost:8000/update_order_quantity/${botSlug}`, {
           method: "POST",
@@ -458,9 +464,10 @@
           body: JSON.stringify({ quantity: newQuantity })
         });
         const data = await response.json();
+        
         if (!response.ok) {
           // If the response status indicates an error, show the error and do not update the UI.
-          alert(data.detail || data.status);
+            alert(data.detail || data.status);
           return;
         }
         alert(data.status || data.detail);
@@ -733,7 +740,7 @@
       }
     }
 
-    setInterval(updateApiUsageIndicator, 2000);
+    setInterval(updateApiUsageIndicator, 500);
 
   </script>
   <script>
@@ -750,6 +757,19 @@
     }
     
     setInterval(restoreActiveBots, 2000);
+
+    async function updateBalance() {
+      try {
+        const response = await fetch("http://localhost:8000/balance");
+        const data = await response.json();
+        const balance = data.balance;
+        document.getElementById("balance-display").textContent = balance;
+      } catch (error) {
+        console.error("Error fetching balance:", error);
+      }
+    }
+    setInterval(updateBalance, 500); 
+
   </script>
 </body>
 </html>

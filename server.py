@@ -57,6 +57,11 @@ async def api_usage():
     usage = get_api_usage()
     return {"api_usage": usage, "rate_limit": "80 calls/10 seconds"}
 
+@app.get("/balance")
+async def get_balance():
+    balance = fetch_balance()
+    return {"balance": balance}
+
 @app.get("/")
 async def read_index():
     return FileResponse("frontend/index.html")
