@@ -8,7 +8,7 @@ import asyncio
 
 from utils.order import create_and_submit_order, cancel_order, get_market_active_orders, cancel_all_orders, cancel_market_orders
 from utils.prices_and_books import get_market_price
-from utils.market_listener import market_events, get_best_bid_ask, get_tick_size_change, get_trades
+from utils.market_listener import get_best_bid_ask, get_tick_size_change, get_trades
 from utils.balance import fetch_balance
 
 from order_quantities import order_quantities
@@ -17,91 +17,126 @@ from py_clob_client.exceptions import PolyApiException
 
 logging.basicConfig(level=logging.INFO, format="%(message)s", handlers=[RichHandler()])
 
-async def run_async_bot_bidAndTick(client, market):
-    try:
-        # At the top of your bot.py (or within an appropriate scope), initialize a variable:
-        last_invalid_quantity = None
-        # Extract market parameters.
-        event_text = market['question']
-        market_id = market['condition_id']
-        market_slug = market['market_slug']
-        market_min_order_size = market['rewards']['min_size']
-        market_spread = market['rewards']['max_spread']
 
+async def run_single_side(client, market, token_index: int):
+    """
+    Handles the entire bot logic for *one* side (one token_id) of the market,
+    in its own task. All log messages are prefixed by "(outcome)" in bold magenta.
+
+    :param token_index: integer 0 or 1, selecting which market['tokens'][...] to handle.
+    """
+    try:
+        market_slug = market["market_slug"]
+        market_id   = market["condition_id"]
+        market_spread = market["rewards"]["max_spread"]
+        market_min_order_size = market["rewards"]["min_size"]
+
+        # Assign a default order quantity for this market (shared storage).
         order_quantities[market_slug] = market_min_order_size
 
-        logging.info(f"[bold green]Bot started.[/bold green]", extra={"bot_slug": market_slug})
+        # Extract the specific token/outcome we're going to trade
+        token_info = market["tokens"][token_index]
+        token_id   = token_info["token_id"]
+        outcome    = token_info["outcome"]
 
-        # Choose the token with the lower price.
-        if market['tokens'][0]['price'] < market['tokens'][1]['price']:
-            outcome = market['tokens'][0]['outcome']
-            token_id = market['tokens'][0]['token_id']
-        else:
-            outcome = market['tokens'][1]['outcome']
-            token_id = market['tokens'][1]['token_id']
+        # Prefix for logs
+        prefix = f"[bold magenta]({outcome})[/bold magenta]"
 
-        market_name = f"{event_text} ({outcome})"
-
-        # Determine how many ticks to offset below the best bid.
+        # If you want to pick a different offset or different logic for each side:
         TOP_BOOK_TICKS = 2 if market_spread <= 1 else 1
 
-        # Initialize state variables.
-        current_min_tick_size = float(market.get('minimum_tick_size', 0.01))
-        current_best_bid = None
-        current_order_price = None
-        initial_order_placed = False
-        current_order_quantity = None  # The quantity used in the last placed order
+        # Initialize state variables
+        current_min_tick_size   = float(market.get("minimum_tick_size", 0.01))
+        current_best_bid        = None
+        current_order_price     = None
+        initial_order_placed    = False
+        current_order_quantity  = None
+        last_invalid_quantity   = None  # for ignoring repeated invalid qty updates
 
         def get_order_quantity():
             return order_quantities.get(market_slug, market_min_order_size)
 
+        # We'll queue up events from listeners:
         event_queue = asyncio.Queue()
 
+        # ------------------ Listeners for *this* token_id ------------------
+
         async def best_bid_listener():
+            # Subscribe to best-bid changes for just this token_id
             async for data in get_best_bid_ask([token_id]):
+                # Tag the event with type = "best_bid"
                 await event_queue.put({"type": "best_bid", **data})
 
         async def tick_size_listener():
+            # Subscribe to tick-size changes for just this token_id
             async for data in get_tick_size_change([token_id]):
                 await event_queue.put({"type": "tick_size", **data})
 
         async def trade_listener():
+            # For trades/fills, we subscribe at market_id level
+            # then filter if the fill is for *this* token_id
             async for data in get_trades([market_id]):
-                await event_queue.put({"type": "fill", **data})
+                if data.get("token_id") == token_id:
+                    await event_queue.put({"type": "fill", **data})
 
         async def quantity_update_listener():
+            # Periodically check if user changed the order quantity
             while True:
                 await asyncio.sleep(0.5)
                 updated_qty = get_order_quantity()
                 if initial_order_placed and updated_qty != current_order_quantity:
-                    await event_queue.put({"type": "quantity_update", "updated_qty": updated_qty})
+                    await event_queue.put({
+                        "type": "quantity_update",
+                        "updated_qty": updated_qty,
+                        "token_id": token_id
+                    })
 
+        # ------------------ Spawn these listeners as tasks ------------------
         best_bid_task = asyncio.create_task(best_bid_listener())
         tick_size_task = asyncio.create_task(tick_size_listener())
-        fill_task = asyncio.create_task(trade_listener())
-        qty_task = asyncio.create_task(quantity_update_listener())
+        fill_task      = asyncio.create_task(trade_listener())
+        qty_task       = asyncio.create_task(quantity_update_listener())
 
+        logging.info(
+            f"{prefix} [bold green]Bot started[/bold green]",
+            extra={"bot_slug": market_slug},
+        )
+
+        # ------------------ Main loop: process events ------------------
         while True:
             event_data = await event_queue.get()
+            e_type = event_data["type"]
 
-            if event_data["type"] == "best_bid":
+            if e_type == "best_bid":
                 new_best_bid = float(event_data["best_bid"])
                 if not initial_order_placed:
-                    current_best_bid = new_best_bid
+                    current_best_bid    = new_best_bid
                     current_order_price = new_best_bid - (TOP_BOOK_TICKS * current_min_tick_size)
                     order_qty = get_order_quantity()
+
                     logging.info(
-                        f"[bold green]Initial market read:[/bold green] Best bid = [bold cyan]{new_best_bid:3f}[/bold cyan], Tick size = [bold cyan]{current_min_tick_size:3f}[/bold cyan]",
-                        extra={"bot_slug": market_slug})
+                        f"{prefix} [bold green]Initial read:[/bold green] "
+                        f"best_bid=[bold cyan]{new_best_bid:.3f}[/bold cyan], "
+                        f"tick_size=[bold cyan]{current_min_tick_size:.3f}[/bold cyan]",
+                        extra={"bot_slug": market_slug},
+                    )
                     logging.info(
-                        f"[bold green]Placing initial order[/bold green] at price [bold cyan]{current_order_price:3f}[/bold cyan] for [bold cyan]{order_qty}[/bold cyan] shares. Total: [bold cyan]{order_qty * current_order_price:3f}[/bold cyan]",
-                        extra={"bot_slug": market_slug})
+                        f"{prefix} [bold green]Placing initial BUY[/bold green] at "
+                        f"[bold cyan]{current_order_price:.3f}[/bold cyan], qty=[bold cyan]{order_qty}[/bold cyan]. "
+                        f"Total=[bold cyan]{order_qty * current_order_price:.3f}[/bold cyan]",
+                        extra={"bot_slug": market_slug},
+                    )
                     try:
-                        create_and_submit_order(client, token_id, 'BUY', current_order_price, order_qty)
+                        create_and_submit_order(client, token_id, "BUY", current_order_price, order_qty)
                     except PolyApiException as e:
-                        if 'not enough balance' in str(e).lower():
-                            logging.info(f"[bold red]Market too expensive![/bold red] Cannot place initial order for {market_slug}.", extra={"bot_slug": market_slug})
+                        if "not enough balance" in str(e).lower():
+                            logging.info(
+                                f"{prefix} [bold red]Too expensive![/bold red] "
+                                f"Cannot place initial order. Shutting down this side.",
+                                extra={"bot_slug": market_slug},
+                            )
                             cancel_market_orders(client, market_id, token_id)
+                            # Cancel tasks associated with this side
                             best_bid_task.cancel()
                             tick_size_task.cancel()
                             fill_task.cancel()
@@ -109,158 +144,208 @@ async def run_async_bot_bidAndTick(client, market):
                             break
                         else:
                             raise
-                    initial_order_placed = True
-                    current_order_quantity = order_qty
+                    initial_order_placed    = True
+                    current_order_quantity  = order_qty
                 else:
+                    # If best bid changes significantly, we may want to move our order
                     threshold = current_min_tick_size * TOP_BOOK_TICKS
                     if abs(new_best_bid - current_best_bid) > threshold:
                         logging.info(
-                            f"[bold yellow]Best bid update:[/bold yellow] from [bold cyan]{current_best_bid:3f}[/bold cyan] to [bold cyan]{new_best_bid:3f}[/bold cyan]",
-                            extra={"bot_slug": market_slug})
+                            f"{prefix} [bold yellow]Best-bid update:[/bold yellow] "
+                            f"{current_best_bid:.3f} -> [bold cyan]{new_best_bid:.3f}[/bold cyan]",
+                            extra={"bot_slug": market_slug},
+                        )
                         current_best_bid = new_best_bid
-                        new_order_price = new_best_bid - (TOP_BOOK_TICKS * current_min_tick_size)
+                        new_order_price  = new_best_bid - (TOP_BOOK_TICKS * current_min_tick_size)
+
                         if abs(new_order_price - current_order_price) > threshold:
                             order_qty = get_order_quantity()
                             current_orders = get_market_active_orders(client, market_id)
-                            logging.info("Orders retrieved.", extra={"bot_slug": market_slug})
-                            current_buy_order = next((order for order in current_orders if order['side'].lower() == 'buy'), None)
+                            logging.info(
+                                f"{prefix} Orders retrieved.",
+                                extra={"bot_slug": market_slug},
+                            )
+                            current_buy_order = next(
+                                (o for o in current_orders if o["side"].lower() == "buy" and o["asset_id"] == token_id),
+                                None,
+                            )
                             if current_buy_order:
                                 logging.info(
-                                    f"[bold yellow]Cancelling order[/bold yellow] due to best bid change.",
-                                    extra={"bot_slug": market_slug})
-                                cancel_order(client, current_buy_order['id'])
+                                    f"{prefix} [bold yellow]Cancelling old BUY[/bold yellow] due to best-bid change.",
+                                    extra={"bot_slug": market_slug},
+                                )
+                                cancel_order(client, current_buy_order["id"])
+
                             logging.info(
-                                f"[bold yellow]Placing new order[/bold yellow] at price [bold cyan]{new_order_price:3f}[/bold cyan] for [bold cyan]{order_qty}[/bold cyan] shares. Total: [bold cyan]{order_qty * new_order_price:3f}[/bold cyan]",
-                                extra={"bot_slug": market_slug})
+                                f"{prefix} [bold yellow]Placing new BUY[/bold yellow] "
+                                f"at [bold cyan]{new_order_price:.3f}[/bold cyan], qty=[bold cyan]{order_qty}[/bold cyan]. "
+                                f"Total=[bold cyan]{order_qty * new_order_price:.3f}[/bold cyan]",
+                                extra={"bot_slug": market_slug},
+                            )
                             try:
-                                create_and_submit_order(client, token_id, 'BUY', new_order_price, order_qty)
+                                create_and_submit_order(client, token_id, "BUY", new_order_price, order_qty)
                             except PolyApiException as e:
-                                if 'not enough balance' in str(e).lower():
-                                    logging.info(f"[bold red]Market too expensive![/bold red] Cannot update order on best bid change for {market_slug}.", extra={"bot_slug": market_slug})
+                                if "not enough balance" in str(e).lower():
+                                    logging.info(
+                                        f"{prefix} [bold red]Too expensive![/bold red] "
+                                        f"Cannot update BUY; shutting down.",
+                                        extra={"bot_slug": market_slug},
+                                    )
                                     cancel_market_orders(client, market_id, token_id)
-                                    best_bid_task.cancel()
-                                    tick_size_task.cancel()
-                                    fill_task.cancel()
-                                    qty_task.cancel()
                                     break
                                 else:
                                     raise
-                            current_order_price = new_order_price
+                            current_order_price    = new_order_price
                             current_order_quantity = order_qty
                         else:
-                            logging.info("Best bid update but order price unchanged.", extra={"bot_slug": market_slug})
+                            logging.info(
+                                f"{prefix} Best-bid changed but below threshold, ignoring.",
+                                extra={"bot_slug": market_slug},
+                            )
                     else:
                         logging.info(
-                            f"Best bid [bold cyan]{new_best_bid}[/bold cyan] received but below threshold (threshold [bold cyan]{threshold}[/bold cyan]).",
-                            extra={"bot_slug": market_slug})
+                            f"{prefix} Best-bid changed but below threshold, ignoring.",
+                            extra={"bot_slug": market_slug},
+                        )
 
-            elif event_data["type"] == "tick_size":
+            elif e_type == "tick_size":
                 new_tick_size = float(event_data["new_tick_size"])
                 if new_tick_size != current_min_tick_size:
                     logging.info(
-                        f"[bold yellow]Tick size change:[/bold yellow] from [bold cyan]{current_min_tick_size}[/bold cyan] to [bold cyan]{new_tick_size}[/bold cyan]",
-                        extra={"bot_slug": market_slug})
+                        f"{prefix} [bold yellow]Tick-size change:[/bold yellow] "
+                        f"{current_min_tick_size:.3f} -> [bold cyan]{new_tick_size:.3f}[/bold cyan]",
+                        extra={"bot_slug": market_slug},
+                    )
                     current_min_tick_size = new_tick_size
+
                     if current_best_bid is not None and initial_order_placed:
                         new_order_price = current_best_bid - (TOP_BOOK_TICKS * current_min_tick_size)
-                        threshold = current_min_tick_size * TOP_BOOK_TICKS
+                        threshold       = current_min_tick_size * TOP_BOOK_TICKS
                         if abs(new_order_price - current_order_price) > threshold:
                             order_qty = get_order_quantity()
                             current_orders = get_market_active_orders(client, market_id)
-                            logging.info("Orders retrieved.", extra={"bot_slug": market_slug})
-                            current_buy_order = next((order for order in current_orders if order['side'].lower() == 'buy'), None)
+                            logging.info(
+                                f"{prefix} Orders retrieved.",
+                                extra={"bot_slug": market_slug},
+                            )
+                            current_buy_order = next(
+                                (o for o in current_orders if o["side"].lower() == "buy" and o["asset_id"] == token_id),
+                                None,
+                            )
                             if current_buy_order:
                                 logging.info(
-                                    f"[bold yellow]Cancelling order[/bold yellow] due to tick size change.",
-                                    extra={"bot_slug": market_slug})
-                                cancel_order(client, current_buy_order['id'])
+                                    f"{prefix} [bold yellow]Cancelling BUY[/bold yellow] due to tick-size change.",
+                                    extra={"bot_slug": market_slug},
+                                )
+                                cancel_order(client, current_buy_order["id"])
+
                             logging.info(
-                                f"[bold yellow]Placing new order[/bold yellow] at price [bold cyan]{new_order_price:3f}[/bold cyan] for [bold cyan]{order_qty}[/bold cyan] shares. Total: [bold cyan]{order_qty * new_order_price:3f}[/bold cyan]",
-                                extra={"bot_slug": market_slug})
+                                f"{prefix} [bold yellow]Placing new BUY[/bold yellow] "
+                                f"at [bold cyan]{new_order_price:.3f}[/bold cyan], qty=[bold cyan]{order_qty}[/bold cyan]. "
+                                f"Total=[bold cyan]{order_qty * new_order_price:.3f}[/bold cyan]",
+                                extra={"bot_slug": market_slug},
+                            )
                             try:
-                                create_and_submit_order(client, token_id, 'BUY', new_order_price, order_qty)
+                                create_and_submit_order(client, token_id, "BUY", new_order_price, order_qty)
                             except PolyApiException as e:
-                                if 'not enough balance' in str(e).lower():
-                                    logging.info(f"[bold red]Market too expensive![/bold red] Cannot update order on tick size change for {market_slug}.", extra={"bot_slug": market_slug})
+                                if "not enough balance" in str(e).lower():
+                                    logging.info(
+                                        f"{prefix} [bold red]Too expensive![/bold red] "
+                                        f"Cannot update order on tick-size change.",
+                                        extra={"bot_slug": market_slug},
+                                    )
                                     cancel_market_orders(client, market_id, token_id)
-                                    best_bid_task.cancel()
-                                    tick_size_task.cancel()
-                                    fill_task.cancel()
-                                    qty_task.cancel()
                                     break
                                 else:
                                     raise
-                            current_order_price = new_order_price
+                            current_order_price    = new_order_price
                             current_order_quantity = order_qty
                         else:
-                            logging.info("Tick size update but order price unchanged.", extra={"bot_slug": market_slug})
+                            logging.info(
+                                f"{prefix} Tick-size changed but order price unchanged.",
+                                extra={"bot_slug": market_slug},
+                            )
                     else:
-                        logging.info("Tick size update but no active order.", extra={"bot_slug": market_slug})
+                        logging.info(
+                            f"{prefix} Tick-size update but no active order yet.",
+                            extra={"bot_slug": market_slug},
+                        )
 
-            elif event_data["type"] == "fill":
+            elif e_type == "fill":
+                fill_size = event_data["size"]
                 logging.info(
-                    f"Order from {market_slug} [bold yellow]filled[/bold yellow] for [bold cyan]{event_data['size']}[/bold cyan] shares",
-                    extra={"bot_slug": market_slug})
+                    f"{prefix} [bold yellow]Fill event[/bold yellow], size=[bold cyan]{fill_size}[/bold cyan]",
+                    extra={"bot_slug": market_slug},
+                )
                 logging.info(
-                    f"[bold red]Shutting down bot[/bold red] for {market_slug}",
-                    extra={"bot_slug": market_slug})
+                    f"{prefix} [bold red]Shutting down bot side[/bold red] for {market_slug}",
+                    extra={"bot_slug": market_slug},
+                )
                 cancel_market_orders(client, market_id, token_id)
+                # Cancel tasks for this side, then break out of loop.
                 best_bid_task.cancel()
                 tick_size_task.cancel()
                 fill_task.cancel()
                 qty_task.cancel()
                 break
 
-            # Within the main event loop inside run_async_bot_bidAndTick:
-            elif event_data["type"] == "quantity_update":
+            elif e_type == "quantity_update":
                 updated_qty = event_data["updated_qty"]
-                
-                # If no change, skip processing.
+                t_id = event_data["token_id"]
                 if updated_qty == current_order_quantity:
                     continue
-
-                # If the same invalid quantity was already processed, skip to avoid spamming logs.
                 if last_invalid_quantity is not None and updated_qty == last_invalid_quantity:
                     continue
 
                 logging.info(
-                    f"[bold magenta]Order quantity update[/bold magenta] detected: current [bold cyan]{current_order_quantity}[/bold cyan] -> new [bold cyan]{updated_qty}[/bold cyan]",
-                    extra={"bot_slug": market_slug})
-                
+                    f"{prefix} [bold magenta]Order quantity update[/bold magenta]: "
+                    f"{current_order_quantity} -> [bold cyan]{updated_qty}[/bold cyan]",
+                    extra={"bot_slug": market_slug},
+                )
+
                 current_balance = fetch_balance()
-                # Check if the updated order cost would exceed the balance.
                 if (updated_qty * current_order_price) > current_balance:
                     max_qty = int(current_balance // current_order_price)
                     logging.info(
-                        f"[bold red]Order quantity update failed![/bold red] The updated order cost ([bold cyan]{updated_qty * current_order_price:.3f}[/bold cyan]) exceeds your balance ([bold cyan]{current_balance}[/bold cyan]). "
-                        f"[bold red]Maximum allowable quantity is[/bold red] [bold cyan]{max_qty}[/bold cyan]. Please update the quantity accordingly.",
-                        extra={"bot_slug": market_slug})
-                    logging.info(
-                        f"[bold yellow]Keeping previous order active[/bold yellow] at price [bold cyan]{current_order_price:3f}[/bold cyan] for [bold cyan]{current_order_quantity}[/bold cyan] shares. Total: [bold cyan]{current_order_quantity * current_order_price:3f}[/bold cyan]",
-                        extra={"bot_slug": market_slug})
-                    # Store this invalid value so that repeated updates with the same value are ignored.
+                        f"{prefix} [bold red]Order qty update failed![/bold red] "
+                        f"Cost=[bold cyan]{updated_qty * current_order_price:.3f}[/bold cyan] "
+                        f"exceeds balance=[bold cyan]{current_balance}[/bold cyan]. "
+                        f"Max allowable=[bold cyan]{max_qty}[/bold cyan]. Keeping old qty.",
+                        extra={"bot_slug": market_slug},
+                    )
                     last_invalid_quantity = updated_qty
-                    continue  # Do not update the order; wait for the UI to send a new value.
-                
-                # If we get here, the new quantity is valid; clear the invalid flag.
+                    continue
                 last_invalid_quantity = None
 
                 current_orders = get_market_active_orders(client, market_id)
-                current_buy_order = next((order for order in current_orders if order['side'].lower() == 'buy'), None)
+                for idx, o in enumerate(current_orders):
+                    if "token_id" not in o:
+                        print("Order at index", idx, "is missing token_id:", o)
+                current_buy_order = next(
+                    (o for o in current_orders if o["side"].lower() == "buy" and o["asset_id"] == token_id),
+                    None,
+                )
                 if current_buy_order:
                     logging.info(
-                        f"[bold yellow]Cancelling order[/bold yellow] due to quantity update.",
-                        extra={"bot_slug": market_slug})
-                    cancel_order(client, current_buy_order['id'])
+                        f"{prefix} [bold yellow]Cancelling BUY[/bold yellow] due to qty update.",
+                        extra={"bot_slug": market_slug},
+                    )
+                    cancel_order(client, current_buy_order["id"])
+
                 logging.info(
-                    f"[bold yellow]Placing updated order[/bold yellow] at price [bold cyan]{current_order_price:3f}[/bold cyan] for [bold cyan]{updated_qty}[/bold cyan] shares. Total: [bold cyan]{updated_qty * current_order_price:3f}[/bold cyan]",
-                    extra={"bot_slug": market_slug})
+                    f"{prefix} [bold yellow]Placing updated BUY[/bold yellow] at "
+                    f"[bold cyan]{current_order_price:.3f}[/bold cyan], qty=[bold cyan]{updated_qty}[/bold cyan]. "
+                    f"Total=[bold cyan]{updated_qty * current_order_price:.3f}[/bold cyan]",
+                    extra={"bot_slug": market_slug},
+                )
                 try:
-                    create_and_submit_order(client, token_id, 'BUY', current_order_price, updated_qty)
+                    create_and_submit_order(client, token_id, "BUY", current_order_price, updated_qty)
                 except PolyApiException as e:
-                    if 'not enough balance / allowance' in str(e).lower():
-                        logging.info(f"[bold red]Allowance problem![/bold red] Cannot update order quantity for {market_slug} due to insufficient allowance.",
-                                    extra={"bot_slug": market_slug})
+                    if "not enough balance / allowance" in str(e).lower():
+                        logging.info(
+                            f"{prefix} [bold red]Allowance problem![/bold red] Cannot update order quantity.",
+                            extra={"bot_slug": market_slug},
+                        )
                         cancel_market_orders(client, market_id, token_id)
                         continue
                     else:
@@ -268,13 +353,41 @@ async def run_async_bot_bidAndTick(client, market):
                 current_order_quantity = updated_qty
 
     except asyncio.CancelledError:
-        logging.info(f"Bot for {market['market_slug']} cancelled.", extra={"bot_slug": market['market_slug']})
+        logging.info(
+            f"[bold magenta]({outcome})[/bold magenta] [bold red]Bot cancelled[/bold red] for {market['market_slug']}",
+            extra={"bot_slug": market["market_slug"]},
+        )
         raise
     except Exception as e:
-        logging.error(f"Unexpected error: {e}", extra={"bot_slug": market['market_slug']})
+        logging.error(
+            f"[bold magenta]({outcome})[/bold magenta] Unexpected error: {e}",
+            extra={"bot_slug": market["market_slug"]},
+        )
         raise
     finally:
-        # This block will run whether the bot stops due to a fill, cancellation, or error.
-        logging.info(f"Cancelling orders for {market['market_slug']}.", extra={"bot_slug": market['market_slug']})
-        # Make sure you cancel orders on both sides if you go dual–side later.
-        cancel_market_orders(client, market_id, market['tokens'][0]['token_id'])
+        # Runs whether the bot stops due to fill, cancellation, or error.
+        logging.info(
+            f"[bold magenta]({outcome})[/bold magenta] [bold red]Cancelling any remaining orders.[/bold red]",
+            extra={"bot_slug": market["market_slug"]},
+        )
+        cancel_market_orders(client, market["condition_id"], market["tokens"][token_index]["token_id"])
+
+
+async def run_async_bot_bidAndTick(client, market):
+    """
+    Spawns TWO parallel tasks: one for each outcome/token_id in the market.
+
+    If you want to shut down the entire bot as soon as one side is filled,
+    you can do so by:
+      - Cancelling all tasks from within one side’s 'fill' event, or
+      - Checking the gather result, etc.
+
+    This example simply runs each side until it is filled or fails.
+    """
+
+    tasks = []
+    for token_index in range(len(market["tokens"])):
+        tasks.append(asyncio.create_task(run_single_side(client, market, token_index)))
+
+    # Let them run in parallel
+    await asyncio.gather(*tasks)

@@ -20,27 +20,27 @@ class BotManager:
             while True:
                 try:
                     logging.info(
-                        f"Starting bot for market [bold green]{market_slug}[/bold green]",
+                        f"[bold green]Starting bot for market {market_slug}[/bold green]",
                         extra={"bot_slug": market_slug}
                     )
                     # Call your bot function (assumed to run indefinitely)
                     await run_async_bot_bidAndTick(self.client, market)
                 except asyncio.CancelledError:
                     logging.info(
-                        f"Bot for market [bold red]{market_slug}[/bold red] was cancelled.",
+                        f"[bold red]Bot for market {market_slug} was cancelled.[/bold red]",
                         extra={"bot_slug": market_slug}
                     )
                     break
                 except Exception as e:
                     logging.info(
-                        f"Bot for market [bold red]{market_slug}[/bold red] encountered an error: {e}",
+                        f"[bold red]Bot for market {market_slug} encountered an error:[/bold red] {e}",
                         exc_info=True,
                         extra={"bot_slug": market_slug}
                     )
                     # Wait before restarting to avoid a tight error loop.
                     await asyncio.sleep(5)
                     logging.info(
-                        f"Restarting bot for market [bold orange]{market_slug}[/bold orange]...",
+                        f"[bold orange]Restarting bot for market {market_slug}[/bold orange]...",
                         extra={"bot_slug": market_slug}
                     )
                 else:
@@ -50,7 +50,7 @@ class BotManager:
             # Remove the task from the manager when the bot stops.
             if market_slug in self.tasks:
                 self.tasks.pop(market_slug)
-            logging.info(f"Bot for market [bold red]{market_slug}[/bold red] has stopped.", extra={"bot_slug": market_slug})
+            logging.info(f"[bold red]Bot for market {market_slug} has stopped.[/bold red]", extra={"bot_slug": market_slug})
 
     def start_all(self):
         """Starts all bots and stores their tasks."""
