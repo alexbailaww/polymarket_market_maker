@@ -1,16 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>3b3c Bot Farm</title>
   <style>
-    /* Removed overflow-x: hidden to allow horizontal scrolling if needed */
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
+    /* Minimal styling, adapted from your code */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       background-color: #121212;
       color: #e0e0e0;
@@ -18,245 +14,188 @@
       line-height: 1.6;
       padding: 20px;
     }
-    /* Header */
     header {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      margin-bottom: 20px;
-      text-align: center;
+      display: flex; flex-direction: column; align-items: center;
+      margin-bottom: 20px; text-align: center;
     }
     header img {
-      height: 60px;
-      margin-bottom: 10px;
+      height: 60px; margin-bottom: 10px;
     }
-    header h1 {
-      font-size: 2.5em;
-      font-weight: 700;
-    }
-    /* Global Controls */
+    header h1 { font-size: 2.5em; font-weight: 700; }
+
     #global-controls {
-      margin-bottom: 20px;
-      text-align: center;
+      margin-bottom: 20px; text-align: center;
     }
     #global-controls button {
-      margin: 0 10px 10px;
-      padding: 10px 15px;
-      background-color: #333;
-      color: #e0e0e0;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 1em;
+      margin: 0 10px 10px; padding: 10px 15px;
+      background-color: #333; color: #e0e0e0;
+      border: none; border-radius: 4px;
+      cursor: pointer; font-size: 1em;
       transition: background-color 0.3s ease;
     }
     #global-controls button:hover {
       background-color: #555;
     }
-    /* Emergency Shutdown Button */
     #global-controls button.shutdown {
       background-color: #d32f2f;
     }
     #global-controls button.shutdown:hover {
       background-color: #b71c1c;
     }
-    /* Market Search Section with Dropdown Multi-select */
+
     #market-search {
-      text-align: center;
-      margin-bottom: 20px;
-      position: relative;
-      width: 40%;
-      margin-left: auto;
-      margin-right: auto;
+      text-align: center; margin-bottom: 20px;
+      position: relative; width: 40%;
+      margin-left: auto; margin-right: auto;
     }
     #market-search input {
-      width: 100%;
-      padding: 10px;
-      font-size: 1em;
-      border: 1px solid #444;
-      border-radius: 4px;
+      width: 100%; padding: 10px; font-size: 1em;
+      border: 1px solid #444; border-radius: 4px;
     }
-    /* Dropdown suggestions */
     #suggestions {
-      position: absolute;
-      top: 42px;
-      width: 100%;
-      background-color: #333;
-      border: 1px solid #444;
-      border-radius: 4px;
-      z-index: 100;
-      max-height: 200px;
-      overflow-y: auto;
+      position: absolute; top: 42px; width: 100%;
+      background-color: #333; border: 1px solid #444;
+      border-radius: 4px; z-index: 100;
+      max-height: 200px; overflow-y: auto;
     }
     .suggestion {
-      padding: 8px;
-      cursor: pointer;
-      text-align: left;
+      padding: 8px; cursor: pointer; text-align: left;
     }
-    .suggestion:hover {
-      background-color: #555;
-    }
-    /* Selected Markets Display (Chips) */
+    .suggestion:hover { background-color: #555; }
+
     #selected-markets {
-      margin-top: 10px;
-      text-align: center;
+      margin-top: 10px; text-align: center;
     }
     .chip {
-      display: inline-block;
-      background-color: #444;
-      padding: 6px 10px;
-      border-radius: 16px;
-      margin: 4px;
-      font-size: 0.9em;
-      cursor: default;
+      display: inline-block; background-color: #444;
+      padding: 6px 10px; border-radius: 16px;
+      margin: 4px; font-size: 0.9em; cursor: default;
     }
-    .chip .remove {
-      margin-left: 6px;
-      color: #e0e0e0;
-      cursor: pointer;
-      font-weight: bold;
-    }
-    /* Clear Inactive Selections Button */
+
     #clear-inactive {
-      margin-top: 10px;
-      padding: 10px 15px;
-      background-color: #555;
-      color: #e0e0e0;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 1em;
+      margin-top: 10px; padding: 10px 15px;
+      background-color: #555; color: #e0e0e0;
+      border: none; border-radius: 4px;
+      cursor: pointer; font-size: 1em;
       transition: background-color 0.3s ease;
     }
     #clear-inactive:disabled {
-      background-color: #333;
-      cursor: not-allowed;
+      background-color: #333; cursor: not-allowed;
     }
-    /* Task List (Minimalist) - narrower */
+
     #task-list {
-      background-color: #1e1e1e;
-      padding: 10px;
-      margin-bottom: 20px;
-      border: 1px solid #444;
-      border-radius: 4px;
-      text-align: center;
-      font-size: 1.1em;
-      width: 200px;
-      margin-left: auto;
-      margin-right: auto;
+      background-color: #1e1e1e; padding: 10px; margin-bottom: 20px;
+      border: 1px solid #444; border-radius: 4px;
+      text-align: center; font-size: 1.1em; width: 260px;
+      margin-left: auto; margin-right: auto;
     }
-    /* Bots Grid: Limit to 3 columns */
+
     #bots {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 20px;
     }
     .bot {
-      background-color: #1e1e1e;
-      border: 1px solid #444;
-      border-radius: 4px;
-      padding: 15px;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      min-height: 400px;
+      background-color: #1e1e1e; border: 1px solid #444;
+      border-radius: 4px; padding: 15px;
+      display: flex; flex-direction: column;
+      justify-content: space-between; min-height: 420px;
     }
     .bot h2 {
-      font-size: 1.5em;
-      margin-bottom: 10px;
-      text-align: center;
+      font-size: 1.5em; margin-bottom: 10px; text-align: center;
     }
     .bot p {
-      font-size: 1em;
-      margin-bottom: 10px;
-      text-align: center;
+      font-size: 1em; margin-bottom: 10px; text-align: center;
     }
     .bot .status {
-      text-align: center;
-      margin-bottom: 10px;
-      font-size: 1em;
+      text-align: center; margin-bottom: 10px; font-size: 1em;
     }
     .bot .buttons {
-      text-align: center;
-      margin-bottom: 10px;
-    }
-    .bot button {
-      margin: 5px;
-      padding: 8px 10px;
-      background-color: #333;
-      color: #e0e0e0;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 0.9em;
-      transition: background-color 0.3s ease;
+      text-align: center; margin-bottom: 10px;
     }
     .bot button:hover {
       background-color: #555;
     }
     .bot h3 {
-      margin-bottom: 5px;
-      text-align: center;
-      font-size: 1.1em;
+      margin-bottom: 5px; text-align: center; font-size: 1.1em;
     }
     .log {
-      background-color: #000;
-      font-family: Consolas, 'Courier New', monospace;
-      font-size: 0.85em;
-      height: 250px;
-      overflow-y: auto;
-      padding: 10px;
-      border: 1px solid #444;
-      border-radius: 4px;
-      white-space: pre-wrap; /* Enables wrapping */
-      word-wrap: break-word; /* Breaks long words if necessary */
-      min-width: 0; /* Allows the element to shrink within a flex or grid container */
+      background-color: #000; font-family: Consolas, 'Courier New', monospace;
+      font-size: 0.85em; height: 250px; overflow-y: auto;
+      padding: 10px; border: 1px solid #444; border-radius: 4px;
+      white-space: pre-wrap; word-wrap: break-word; min-width: 0;
     }
-    /* Bots Header */
     #bots-header {
-      background-color: #222;
-      border: 1px solid #444;
-      border-radius: 4px;
-      padding: 10px;
-      margin-bottom: 10px;
-      text-align: center;
-      width: 100%;
+      background-color: #222; border: 1px solid #444;
+      border-radius: 4px; padding: 10px; margin-bottom: 10px;
+      text-align: center; width: 100%;
     }
     #bots-header h2 {
-      font-size: 1.8em;
-      color: #fff;
-      margin: 0;
+      font-size: 1.8em; color: #fff; margin: 0;
     }
-    
-    /* Responsive adjustments */
+
+    .start-button {
+      background-color: #1c501f; /* green-ish */
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      padding: 8px 12px;
+      font-size: 0.85em;
+    }
+    .start-button:hover {
+      background-color: #1c501f;
+    }
+
+    .stop-button {
+      background-color: #500f0f; /* red-ish */
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      padding: 8px 12px;
+      font-size: 0.85em;
+    }
+
+    .other-button {
+      background-color: #363636;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      padding: 8px 12px;
+      font-size: 0.85em;
+    }
+
+    .button-row {
+      gap: 1cm;
+      margin-bottom: 1px; 
+    }
+
+    .stop-button:hover {
+      background-color: #363636;
+    }
+
     @media (max-width: 768px) {
-      #bots {
-        grid-template-columns: 1fr;
-      }
-      #market-search {
-        width: 90%;
-      }
-      header h1 {
-        font-size: 2em;
-      }
-      #task-list {
-        width: 70%;
-      }
+      #bots { grid-template-columns: 1fr; }
+      #market-search { width: 90%; }
+      header h1 { font-size: 2em; }
+      #task-list { width: 70%; }
     }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/ansi_up@5.0.0/ansi_up.min.js"></script>
 </head>
 <body>
-  <!-- Centered Header with logo and title -->
+
   <header>
     <img src="https://images.crunchbase.com/image/upload/c_pad,f_auto,q_auto:eco,dpr_1/radxv99bd8jwiuqwxt95" alt="PolyMarket Logo">
     <h1>3b3c Bot Farm</h1>
   </header>
+
+  <!-- Balance and usage -->
   <div id="balance-container" style="text-align: center; margin-bottom: 20px;">
     <span style="font-size: 1.2em;">Balance (USDC.E): </span>
     <span id="balance-display" style="font-size: 1.2em; font-weight: bold;">Loading...</span>
-  </div>  
-
+  </div>
   <div style="display: flex; flex-direction: column; align-items: center; margin: 20px 0;">
     <label for="api-usage-progress" style="font-weight: 500; color: #ccc; margin-bottom: 8px; font-size: 1rem;">
       API Usage (per 10 sec)
@@ -280,15 +219,14 @@
       Usage: 0 calls / 80 calls
     </div>
   </div>
-  
 
+  <!-- Global controls -->
   <div id="global-controls">
-    <button onclick="startAll()">Start All Bots</button>
-    <button onclick="stopAll()">Stop All Bots</button>
-    <button class="shutdown" onclick="shutdownServer()"><b>EMERGENCY SHUTDOWN</b></button>
+    <button class="start-button" onclick="startAll()">Start All</button>
+    <button class="stop-button" onclick="stopAll()">Stop All</button>
   </div>
 
-  <!-- Market Search Section with Dropdown Multi-select -->
+  <!-- Market search and selections -->
   <div id="market-search">
     <input type="text" id="search-input" placeholder="Enter market title..." autocomplete="off" oninput="searchMarkets()" />
     <div id="suggestions"></div>
@@ -296,32 +234,35 @@
     <button id="clear-inactive" onclick="clearInactiveSelections()">Clear Inactive Selections</button>
   </div>
 
-  <!-- Minimalist Task Display -->
+  <!-- Task list -->
   <div id="task-list">
-    <b>Active Bots:</b> <span id="tasks-output">None</span>
+    <b>Active Bots / Sides:</b>
+    <div id="tasks-output">None</div>
   </div>
 
-  <!-- Bots Header -->
+  <!-- Bots header -->
   <div id="bots-header">
     <h2>Deployed Bot Tabs</h2>
   </div>
 
-  <!-- Bots grid: populated with selected markets only -->
+  <!-- Bots container -->
   <div id="bots">No markets selected.</div>
-  
+
   <script>
+    /* ============================
+       Global Variables & Helpers
+       ============================ */
     const ansi_up = new AnsiUp();
     ansi_up.use_classes = false;
     ansi_up.escape_for_html = false;
 
-    // Global variables
-    let marketList = []; // Full list from /markets
-    const selectedMarkets = []; // Array to store selected market objects
-    const wsConnections = {};
-    const slugIndexMap = {};
-    let activeMarketSlugs = []; // List of active bot market slugs
+    let marketList = [];           // from /markets
+    const selectedMarkets = [];    // user-chosen markets
+    const wsConnections = {};      // store WebSocket objects
+    let activeTasks = [];          // strings like ["(slug, 0)", "(slug, 1)"]
+    let previousActiveTasks = [];
 
-    // Persist selected markets to localStorage.
+    // Save/Load selected markets to localStorage
     function saveSelectedMarkets() {
       localStorage.setItem("selectedMarkets", JSON.stringify(selectedMarkets));
     }
@@ -332,7 +273,8 @@
           const arr = JSON.parse(saved);
           if (Array.isArray(arr)) {
             arr.forEach(item => {
-              if (item.market_slug && item.question && !selectedMarkets.find(m => m.market_slug === item.market_slug)) {
+              if (item.market_slug && item.question
+                  && !selectedMarkets.find(m => m.market_slug === item.market_slug)) {
                 selectedMarkets.push(item);
               }
             });
@@ -343,7 +285,9 @@
       }
     }
 
-    // Fuzzy search function to query the backend for suggestions.
+    /* ============================
+       Search Markets / Suggestions
+       ============================ */
     async function searchMarkets() {
       const query = document.getElementById("search-input").value;
       const suggestionsDiv = document.getElementById("suggestions");
@@ -363,7 +307,6 @@
           div.onclick = () => {
             if (!selectedMarkets.find(m => m.market_slug === suggestion.market_slug)) {
               selectedMarkets.push(suggestion);
-              
               updateBotGrid();
               saveSelectedMarkets();
             }
@@ -377,7 +320,9 @@
       }
     }
 
-    // Update the display of selected markets as chips.
+    /* ============================
+       Update Selected Chips
+       ============================ */
     function updateSelectedDisplay() {
       const selectedDiv = document.getElementById("selected-markets");
       selectedDiv.innerHTML = "";
@@ -390,14 +335,18 @@
       updateClearInactiveButton();
     }
 
-    // Enable or disable the "Clear Inactive Selections" button.
     function updateClearInactiveButton() {
       const clearBtn = document.getElementById("clear-inactive");
-      const inactive = selectedMarkets.filter(market => !activeMarketSlugs.includes(market.market_slug));
-      clearBtn.disabled = inactive.length === 0;
+      // If no active tasks mention this slug, it's "inactive."
+      const inactive = selectedMarkets.filter(m =>
+        !activeTasks.some(t => t.includes(`(${m.market_slug},`))
+      );
+      clearBtn.disabled = (inactive.length === 0);
     }
 
-    // Update the bots grid to display only the selected markets.
+    /* ============================
+       Build the 'bots' grid
+       ============================ */
     function updateBotGrid() {
       const botsContainer = document.getElementById("bots");
       botsContainer.innerHTML = "";
@@ -409,72 +358,59 @@
         const botSlug = market.market_slug;
         const question = market.question;
         const displayIndex = index + 1;
-        const marketSide = market.side || "Unknown";
-        // Default order quantity: if not specified, use min_shares.
-        const minShares = market.rewards ? market.rewards.min_size : 1;
-        const defaultQuantity = market.quantity || minShares;
-        
-        const removeButtonHtml = activeMarketSlugs.includes(botSlug)
-          ? ""
-          : `<span class="remove-bot" style="position: absolute; top: 5px; right: 5px; cursor: pointer; font-size: 1.2em; color: #e0e0e0;" onclick="removeBot('${botSlug}')">&times;</span>`;
-        
+        const minShares = market?.rewards?.min_size || 1;
+
+        // We'll label side 0 and side 1 by their "outcome":
+        let side0Outcome = "Side0";
+        let side1Outcome = "Side1";
+        if (market.tokens && market.tokens.length >= 2) {
+          side0Outcome = market.tokens[0].outcome || "Side0";
+          side1Outcome = market.tokens[1].outcome || "Side1";
+        }
+
         const container = document.createElement("div");
         container.className = "bot";
         container.id = `bot-${botSlug}`;
+
         container.innerHTML = `
           <div style="position: relative;">
-            ${removeButtonHtml}
+            <span class="remove-bot" style="position: absolute; top: 5px; right: 5px; cursor: pointer; font-size: 1.2em; color: #e0e0e0;"
+              onclick="removeBot('${botSlug}')">&times;</span>
             <h2>Bot #${displayIndex}</h2>
           </div>
           <p>${question}</p>
-          <p>Order Quantity: <strong id="quantity-${botSlug}">${defaultQuantity}</strong></p>
-          <p>Min Order Quantity: <strong id="quantity-${botSlug}">${minShares}</strong></p>
+          <p>Min Order Quantity: <strong>${minShares}</strong></p>
           <div class="status">Status: <span id="status-${botSlug}">Not Running</span></div>
           <div class="buttons">
-            <button onclick="startBot('${botSlug}')">Start Bot</button>
-            <button onclick="stopBot('${botSlug}')">Stop Bot</button>
-            <button onclick="updateOrderQuantity('${botSlug}')">Update Order Quantity</button>
-            <button onclick="clearLogs('${botSlug}')">Clear Logs</button>
-            <button onclick="exportLogs('${botSlug}')">Export Logs</button>
+            <!-- Both Sides -->
+            <div class="button-row">
+              <button class="start-button" onclick="startBot('${botSlug}')">Start</button>
+              <button class="stop-button" onclick="stopBot('${botSlug}')">Stop</button>
+            </div>
+            <br/>
+            <!-- Single side using outcome labels -->
+            <div class="button-row">
+              <button class="start-button" onclick="startSide('${botSlug}', 0)">Start ${side0Outcome}</button>
+              <button class="start-button" onclick="startSide('${botSlug}', 1)">Start ${side1Outcome}</button>
+              <button class="stop-button" onclick="stopSide('${botSlug}', 0)">Stop ${side0Outcome}</button>
+              <button class="stop-button" onclick="stopSide('${botSlug}', 1)">Stop ${side1Outcome}</button>
+            </div>
+            <br/>
+            <div class="button-row">
+              <button class="other-button" onclick="updateOrderQuantity('${botSlug}')">Update Order Qty</button>
+              <button class="other-button" onclick="clearLogs('${botSlug}')">Clear Logs</button>
+              <button class="other-button" onclick="exportLogs('${botSlug}')">Export Logs</button>
+            </div>
           </div>
           <h3>Logs:</h3>
           <pre class="log" id="log-${botSlug}">Waiting for logs...</pre>
         `;
         botsContainer.appendChild(container);
+
+        // Connect logs WebSocket for this market
         connectWebSocket(botSlug);
       });
-    }
-
-    // New function: prompt user to update order quantity.
-    async function updateOrderQuantity(botSlug) {
-      // Prompt the user for a new quantity.
-      let newQuantity = prompt("Enter new order quantity (in shares). It must be at least the minimum order size.");
-      if (!newQuantity) return;
-      newQuantity = parseFloat(newQuantity);
-      if (isNaN(newQuantity)) {
-        alert("Invalid quantity.");
-        return;
-      }
-      
-      try {
-        const response = await fetch(`http://localhost:8000/update_order_quantity/${botSlug}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ quantity: newQuantity })
-        });
-        const data = await response.json();
-        
-        if (!response.ok) {
-          // If the response status indicates an error, show the error and do not update the UI.
-            alert(data.detail || data.status);
-          return;
-        }
-        alert(data.status || data.detail);
-        // Update the displayed quantity only if the API call succeeded.
-        document.getElementById(`quantity-${botSlug}`).textContent = newQuantity;
-      } catch (error) {
-        alert("Error updating order quantity: " + error);
-      }
+      updateSelectedDisplay();
     }
 
     function removeBot(marketSlug) {
@@ -482,56 +418,41 @@
       if (index !== -1) {
         selectedMarkets.splice(index, 1);
         updateBotGrid();
-        
         saveSelectedMarkets();
       }
     }
 
-    // Clear inactive selections.
     function clearInactiveSelections() {
       const beforeCount = selectedMarkets.length;
       for (let i = selectedMarkets.length - 1; i >= 0; i--) {
-        const market = selectedMarkets[i];
-        if (!activeMarketSlugs.includes(market.market_slug)) {
+        const slug = selectedMarkets[i].market_slug;
+        // if no tasks mention (slug, x)
+        if (!activeTasks.some(t => t.includes(`(${slug},`))) {
           selectedMarkets.splice(i, 1);
         }
       }
       if (selectedMarkets.length < beforeCount) {
         alert("Inactive selections cleared.");
       }
-      
       updateBotGrid();
       saveSelectedMarkets();
     }
 
-    // Helper function to connect a WebSocket for a given bot.
-    function connectWebSocket(botSlug) {
-      const ws = new WebSocket(`ws://localhost:8000/ws/logs/${botSlug}`);
-      ws.onmessage = (event) => {
-        const html = ansi_up.ansi_to_html(event.data);
-        const logElement = document.getElementById(`log-${botSlug}`);
-        logElement.innerHTML = html;
-        
-        // Check if the log message indicates a fill event and shutdown.
-        // For example, if it contains both "filled" and "shutting down bot"
-        if (html.toLowerCase().includes("filled") && html.toLowerCase().includes("shutting down bot")) {
-          // Change the background of the corresponding bot card.
-          const botContainer = document.getElementById(`bot-${botSlug}`);
-          if (botContainer) {
-            botContainer.style.backgroundColor = "#330000"; // very dark red
-          }
-        }
-      };
-      ws.onclose = (event) => {
-        console.log(`WebSocket for ${botSlug} closed with code ${event.code}`);
-      };
-      wsConnections[botSlug] = ws;
-    }
-
-    // Helper function to call API endpoints.
-    async function callAPI(url, method = "POST") {
+    /* ============================
+       Start/Stop Entire Market
+       ============================ */
+    async function startBot(botSlug) {
       try {
-        const response = await fetch(url, { method });
+        const response = await fetch(`http://localhost:8000/start_bot/${botSlug}`, { method: "POST" });
+        const data = await response.json();
+        alert(data.status || data.detail);
+      } catch (error) {
+        alert("Error: " + error);
+      }
+    }
+    async function stopBot(botSlug) {
+      try {
+        const response = await fetch(`http://localhost:8000/stop_bot/${botSlug}`, { method: "POST" });
         const data = await response.json();
         alert(data.status || data.detail);
       } catch (error) {
@@ -539,15 +460,32 @@
       }
     }
 
-    function startBot(botSlug) {
-      callAPI(`http://localhost:8000/start_bot/${botSlug}`);
+    /* ============================
+       Start/Stop Single Side
+       ============================ */
+    async function startSide(botSlug, tokenIndex) {
+      try {
+        const url = `http://localhost:8000/start_side/${botSlug}/${tokenIndex}`;
+        const response = await fetch(url, { method: "POST" });
+        const data = await response.json();
+        alert(data.status || data.detail);
+      } catch (error) {
+        alert("Error: " + error);
+      }
     }
-    
-    function stopBot(botSlug) {
-      callAPI(`http://localhost:8000/stop_bot/${botSlug}`);
+    async function stopSide(botSlug, tokenIndex) {
+      try {
+        const response = await fetch(`http://localhost:8000/stop_side/${botSlug}/${tokenIndex}`, { method: "POST" });
+        const data = await response.json();
+        alert(data.status || data.detail);
+      } catch (error) {
+        alert("Error: " + error);
+      }
     }
-    
-    // Global start/stop for confirmed bots.
+
+    /* ============================
+       Start/Stop All (Both Sides)
+       ============================ */
     function startAll() {
       const confirmed = selectedMarkets.map(m => m.market_slug);
       fetch("http://localhost:8000/start_all", {
@@ -559,7 +497,6 @@
       .then(data => alert(data.status || data.detail))
       .catch(error => alert("Error: " + error));
     }
-    
     function stopAll() {
       const confirmed = selectedMarkets.map(m => m.market_slug);
       fetch("http://localhost:8000/stop_all", {
@@ -571,92 +508,60 @@
       .then(data => alert(data.status || data.detail))
       .catch(error => alert("Error: " + error));
     }
-    
-    let previousActiveMarketSlugs = [];
 
-    async function checkTasks() {
-      try {
-        const response = await fetch("http://localhost:8000/tasks");
-        const data = await response.json();
-        activeMarketSlugs = data.tasks;
-
-        // Compare new active list with previous state
-        if (JSON.stringify(activeMarketSlugs) !== JSON.stringify(previousActiveMarketSlugs)) {
-          updateBotGrid();
-          previousActiveMarketSlugs = [...activeMarketSlugs];
-        }
-
-        const activeCount = activeMarketSlugs.filter(slug =>
-          selectedMarkets.find(m => m.market_slug === slug)
-        ).length;
-        document.getElementById("tasks-output").textContent =
-          activeCount + "/" + selectedMarkets.length;
-
-        // Update each bot's status indicator.
-        selectedMarkets.forEach(market => {
-          const statusElem = document.getElementById(`status-${market.market_slug}`);
-          if (statusElem) {
-            if (activeMarketSlugs.includes(market.market_slug)) {
-              statusElem.textContent = "Running";
-              statusElem.style.color = "lime";
-            } else {
-              statusElem.textContent = "Not Running";
-              statusElem.style.color = "red";
+    /* ============================
+       WebSocket for Logs
+       ============================ */
+    function connectWebSocket(botSlug) {
+      if (wsConnections[botSlug]) {
+        return; // Already have a connection
+      }
+      const ws = new WebSocket(`ws://localhost:8000/ws/logs/${botSlug}`);
+      ws.onmessage = (event) => {
+        const html = ansi_up.ansi_to_html(event.data);
+        const logElement = document.getElementById(`log-${botSlug}`);
+        if (logElement) {
+          logElement.innerHTML = html;
+          // If "filled" + "shutting down bot" => color red background
+          if (html.toLowerCase().includes("filled") && html.toLowerCase().includes("shutting down bot")) {
+            const botContainer = document.getElementById(`bot-${botSlug}`);
+            if (botContainer) {
+              botContainer.style.backgroundColor = "#330000";
             }
           }
-        });
-
-        // Ensure the "Clear Inactive Selections" button reflects the current state.
-        updateClearInactiveButton();
-
-      } catch (error) {
-        console.error("Error checking tasks:", error);
-        document.getElementById("tasks-output").textContent = "Error fetching tasks";
-      }
+        }
+      };
+      ws.onclose = (ev) => {
+        console.log(`WebSocket for ${botSlug} closed, code=${ev.code}`);
+      };
+      wsConnections[botSlug] = ws;
     }
-    
-    async function shutdownServer() {
+
+    /* ============================
+       Clear/Export Logs
+       ============================ */
+    async function clearLogs(botSlug) {
       try {
-        const response = await fetch("http://localhost:8000/shutdown", { method: "POST" });
+        const response = await fetch(`http://localhost:8000/clear_logs/${botSlug}`, { method: "POST" });
         const data = await response.json();
+        const logElem = document.getElementById(`log-${botSlug}`);
+        if (logElem) {
+          logElem.innerHTML = "Logs cleared.";
+        }
         alert(data.status || data.detail);
       } catch (error) {
-        alert("Error: " + error);
+        alert("Error clearing logs: " + error);
       }
     }
-    
-    // Clear logs (only if bot is stopped).
-    function clearLogs(botSlug) {
-      if (activeMarketSlugs.includes(botSlug)) {
-        alert("Cannot clear logs while bot is running. Please stop the bot first.");
-        return;
-      }
-      fetch(`http://localhost:8000/clear_logs/${botSlug}`, { method: "POST" })
-        .then(response => response.json())
-        .then(data => {
-          const logElem = document.getElementById(`log-${botSlug}`);
-          if (logElem) {
-            logElem.innerHTML = "Logs cleared.";
-          }
-          alert(data.status || data.detail);
-        })
-        .catch(error => alert("Error clearing logs: " + error));
-    }
-    
     function exportLogs(botSlug) {
       const logElem = document.getElementById(`log-${botSlug}`);
       if (logElem) {
         const logs = logElem.textContent;
         const now = new Date();
         const options = { 
-          year: 'numeric', 
-          month: '2-digit', 
-          day: '2-digit', 
-          hour: '2-digit', 
-          minute: '2-digit', 
-          second: '2-digit', 
-          hour12: false, 
-          timeZone: 'Europe/Bucharest'
+          year: 'numeric', month: '2-digit', day: '2-digit',
+          hour: '2-digit', minute: '2-digit', second: '2-digit',
+          hour12: false, timeZone: 'Europe/Bucharest'
         };
         const romaniaTime = new Intl.DateTimeFormat('sv-SE', options)
           .format(now)
@@ -666,69 +571,128 @@
         const blob = new Blob([logs], { type: 'text/plain' });
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement("a");
-        a.href = url;
-        a.download = filename;
-        a.click();
+        a.href = url; a.download = filename; a.click();
         window.URL.revokeObjectURL(url);
       }
     }
-    
-    setInterval(checkTasks, 2000);
-    
-    async function loadMarketList() {
+
+    /* ============================
+       Update Order Quantity
+       ============================ */
+    async function updateOrderQuantity(botSlug) {
+      let newQuantity = prompt("Enter new order quantity (>= min order size):");
+      if (!newQuantity) return;
+      newQuantity = parseFloat(newQuantity);
+      if (isNaN(newQuantity)) {
+        alert("Invalid quantity.");
+        return;
+      }
       try {
-        const response = await fetch("http://localhost:8000/markets");
+        const response = await fetch(`http://localhost:8000/update_order_quantity/${botSlug}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ quantity: newQuantity })
+        });
         const data = await response.json();
-        marketList = data.markets;
+        if (!response.ok) {
+          alert(data.detail || data.status);
+          return;
+        }
+        alert(data.status || data.detail);
       } catch (error) {
-        console.error("Error loading market list:", error);
+        alert("Error updating order quantity: " + error);
       }
     }
 
-    // Refresh the "side" field for each selected market.
-    async function refreshSelectedMarketsSide() {
+    /* ============================
+       Periodically Check Tasks
+       ============================ */
+    async function checkTasks() {
       try {
-        const response = await fetch("http://localhost:8000/markets");
-        const data = await response.json();
-        const marketSideMap = {};
-        data.markets.forEach(market => {
-          marketSideMap[market.market_slug] = market.side;
-        });
-        selectedMarkets.forEach(market => {
-          market.side = marketSideMap[market.market_slug] || market.side;
-        });
-        updateBotGrid();
-      } catch (error) {
-        console.error("Error refreshing market sides:", error);
-      }
-    }
- 
-    // Restore selected markets from localStorage.
-    function restoreSelectedMarkets() {
-      const saved = localStorage.getItem("selectedMarkets");
-      if (saved) {
-        try {
-          const arr = JSON.parse(saved);
-          if (Array.isArray(arr)) {
-            arr.forEach(item => {
-              if (item.market_slug && item.question && !selectedMarkets.find(m => m.market_slug === item.market_slug)) {
-                selectedMarkets.push(item);
-              }
-            });
-          }
-        } catch (e) {
-          console.error("Error parsing saved selected markets:", e);
+        const resp = await fetch("http://localhost:8000/tasks");
+        if (!resp.ok) {
+          throw new Error("Failed to fetch tasks");
         }
+        const data = await resp.json();
+        activeTasks = data.tasks; // array of strings like: ["('(slug, 0)')", ...]
+
+        if (JSON.stringify(activeTasks) !== JSON.stringify(previousActiveTasks)) {
+          previousActiveTasks = [...activeTasks];
+        }
+
+        const tasksOutput = document.getElementById("tasks-output");
+        if (activeTasks.length === 0) {
+          tasksOutput.textContent = "None";
+        } else {
+          tasksOutput.innerHTML = activeTasks.map(t => `<div>${t}</div>`).join("");
+        }
+
+        // Update each selected market's status
+        selectedMarkets.forEach(m => {
+          const botSlug = m.market_slug;
+          const statusElem = document.getElementById(`status-${botSlug}`);
+          if (!statusElem) return;
+
+          // Grab outcome labels to display them
+          let side0Outcome = "Side0";
+          let side1Outcome = "Side1";
+          if (m.tokens && m.tokens.length >= 2) {
+            side0Outcome = m.tokens[0].outcome || "Side0";
+            side1Outcome = m.tokens[1].outcome || "Side1";
+          }
+
+          const side0Running = activeTasks.some(x => x.includes(`(${botSlug}, 0)`));
+          const side1Running = activeTasks.some(x => x.includes(`(${botSlug}, 1)`));
+
+          let text = "Not Running";
+          let color = "red";
+          if (side0Running && side1Running) {
+            text = `${side0Outcome} & ${side1Outcome} Running`;
+            color = "lime";
+          } else if (side0Running) {
+            text = `${side0Outcome} Running`;
+            color = "lime";
+          } else if (side1Running) {
+            text = `${side1Outcome} Running`;
+            color = "lime";
+          }
+          statusElem.textContent = text;
+          statusElem.style.color = color;
+        });
+
+        updateClearInactiveButton();
+      } catch (error) {
+        console.error("Error fetching tasks:", error);
       }
     }
-    
-    window.onload = async () => {
-      await loadMarketList();
-      restoreSelectedMarkets();
-      
-      updateBotGrid();
-      await refreshSelectedMarketsSide();
-    };
+    setInterval(checkTasks, 2000);
+
+    /* ============================
+       Shutdown
+       ============================ */
+    async function shutdownServer() {
+      try {
+        const response = await fetch("http://localhost:8000/shutdown", { method: "POST" });
+        const data = await response.json();
+        alert(data.status || data.detail);
+      } catch (error) {
+        alert("Error: " + error);
+      }
+    }
+
+    /* ============================
+       Balance, API Usage
+       ============================ */
+    async function updateBalance() {
+      try {
+        const response = await fetch("http://localhost:8000/balance");
+        const data = await response.json();
+        document.getElementById("balance-display").textContent = data.balance;
+      } catch (error) {
+        console.error("Error fetching balance:", error);
+      }
+    }
+    setInterval(updateBalance, 500);
 
     async function updateApiUsageIndicator() {
       try {
@@ -740,46 +704,57 @@
         const data = await response.json();
         const usage = data.api_usage;
         const maxUsage = 80;
-        const percentage = Math.min((usage / maxUsage) * 100, 100);
-        
-        document.getElementById("api-usage-progress").style.width = percentage + "%";
+        const pct = Math.min((usage / maxUsage) * 100, 100);
+        document.getElementById("api-usage-progress").style.width = pct + "%";
         document.getElementById("api-usage-text").textContent =
           `Usage: ${usage} calls / ${maxUsage} calls`;
       } catch (error) {
         console.error("Error fetching API usage:", error);
       }
     }
-
     setInterval(updateApiUsageIndicator, 500);
 
-  </script>
-  <script>
-    // Restore active bots on page load.
+    /* ============================
+       On page load
+       ============================ */
+    async function loadMarketList() {
+      try {
+        const response = await fetch("http://localhost:8000/markets");
+        const data = await response.json();
+        marketList = data.markets;
+      } catch (error) {
+        console.error("Error loading market list:", error);
+      }
+    }
+
+    async function refreshSelectedMarketsTokens() {
+      // If your backend includes .tokens in the "suggestions" or "markets" endpoints,
+      // you can store them. If not, you may need a custom endpoint for detailed market info.
+      // This example assumes you have them in your existing manager.markets object.
+      // Just a placeholder: do whatever you need to ensure selectedMarkets[i].tokens
+      // is populated with [ { outcome: "Yes", ...}, { outcome: "No", ... } ] 
+    }
+
     async function restoreActiveBots() {
       try {
         const response = await fetch("http://localhost:8000/tasks");
         const data = await response.json();
-        activeMarketSlugs = data.tasks;
-        
+        activeTasks = data.tasks;
       } catch (error) {
         console.error("Error restoring active bots:", error);
       }
     }
-    
     setInterval(restoreActiveBots, 2000);
 
-    async function updateBalance() {
-      try {
-        const response = await fetch("http://localhost:8000/balance");
-        const data = await response.json();
-        const balance = data.balance;
-        document.getElementById("balance-display").textContent = balance;
-      } catch (error) {
-        console.error("Error fetching balance:", error);
-      }
-    }
-    setInterval(updateBalance, 500); 
+    window.onload = async () => {
+      await loadMarketList();
+      loadSelectedMarkets();
 
+      // If you need to fetch the tokens for each selected market:
+      await refreshSelectedMarketsTokens();
+
+      updateBotGrid();
+    };
   </script>
 </body>
 </html>

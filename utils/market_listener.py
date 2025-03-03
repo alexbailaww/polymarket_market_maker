@@ -101,7 +101,7 @@ async def get_trades(marketIDs):
     })
 
     async with websockets.connect(WEBSOCKET_URL) as websocket:
-        # Send the proper JSON-formatted subscription message.
+        # Send the proper JSON-formatted subscription message. 
         await websocket.send(subscription_message)
 
         # Listen continuously for incoming messages.
