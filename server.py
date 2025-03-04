@@ -289,6 +289,12 @@ async def update_order_quantity(market_slug: str, update: OrderQuantityUpdate):
     order_quantities[market_slug] = quantity
     return {"status": f"Market {market_slug} order quantity updated to {quantity}"}
 
+@app.get("/order_quantities")
+async def get_order_quantities():
+    # Since our order quantities are stored using market_slug as key,
+    # simply return the order_quantities dictionary.
+    return order_quantities
+
 # Optional: A “shutdown” endpoint if you want the EMERGENCY SHUTDOWN button to do something
 @app.post("/shutdown")
 async def shutdown_server():

@@ -381,7 +381,7 @@
           </div>
           <p>${question}</p>
           <p>Min Order Quantity: <strong>${minShares}</strong></p>
-          <p>Current Order Quantity: <strong>${currentShares}</strong></p>
+          <p>Current Order Quantity: <strong id="current-qty-${botSlug}">Loading...</strong></p>
           <div class="status">Status: <span id="status-${botSlug}">Not Running</span></div>
           <div class="buttons">
             <!-- Both Sides -->
@@ -605,6 +605,30 @@
         alert("Error updating order quantity: " + error);
       }
     }
+
+    async function updateOrderQuantitiesUI() {
+      try {
+        const response = await fetch("http://localhost:8000/order_quantities");
+        if (!response.ok) {
+          throw new Error("Failed to fetch order quantities");
+        }
+        const data = await response.json();
+        // For each selected market, update the UI element with the latest order quantity
+        selectedMarkets.forEach(market => {
+          const botSlug = market.market_slug;
+          const updatedQty = data[botSlug];
+          const qtyElem = document.getElementById(`current-qty-${botSlug}`);
+          if (qtyElem) {
+            qtyElem.textContent = updatedQty !== undefined ? updatedQty : "N/A";
+          }
+        });
+      } catch (err) {
+        console.error("Error updating order quantities UI:", err);
+      }
+    }
+
+    // Poll the endpoint every second (adjust the interval as needed)
+    setInterval(updateOrderQuantitiesUI, 1000);
 
     /* ============================
        Periodically Check Tasks

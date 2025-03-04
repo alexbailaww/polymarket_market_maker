@@ -32,7 +32,8 @@ async def run_single_side(client, market, token_index: int):
         market_min_order_size = market["rewards"]["min_size"]
 
         # Assign a default order quantity for this market (shared storage).
-        order_quantities[market_slug] = market_min_order_size
+        if market_slug not in order_quantities:
+            order_quantities[market_slug] = market_min_order_size
 
         # Extract the specific token/outcome we're going to trade
         token_info = market["tokens"][token_index]
