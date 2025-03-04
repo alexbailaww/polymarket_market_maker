@@ -3,6 +3,7 @@ import logging
 from rich.logging import RichHandler
 # from rich import print
 from rich.progress import track
+import json
 
 import asyncio
 
@@ -19,7 +20,6 @@ logging.basicConfig(level=logging.INFO, format="%(message)s", handlers=[RichHand
 
 
 async def run_single_side(client, market, token_index: int):
-    balance = fetch_balance()
     """
     Handles the entire bot logic for *one* side (one token_id) of the market,
     in its own task. All log messages are prefixed by "(outcome)" in bold magenta.
@@ -307,11 +307,12 @@ async def run_single_side(client, market, token_index: int):
 
                 current_balance = fetch_balance()
 
-                current_orders = get_market_active_orders(client, market_id)
-                reserved_funds = sum(o["price"] * o["quantity"] for o in current_orders if o["asset_id"] == token_id)
-                available_balance = current_balance - reserved_funds
+                # current_orders = get_market_active_orders(client, market_id)
+                # print(json.dumps(current_orders, indent = 4))
+                # reserved_funds = sum(float(o["price"]) * float(o["original_size"]) for o in current_orders if o["asset_id"] == token_id)
+                # available_balance = current_balance - reserved_funds
 
-                if (updated_qty * current_order_price) > available_balance:
+                if (updated_qty * current_order_price) > current_balance:
                     max_qty = int(current_balance // current_order_price)
                     logging.info(
                         f"{prefix} [bold red]Order qty update failed![/bold red] "

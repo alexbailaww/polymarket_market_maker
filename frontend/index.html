@@ -399,7 +399,7 @@
             </div>
             <br/>
             <div class="button-row">
-              <button class="other-button" onclick="updateOrderQuantity('${botSlug}')">Update Order Qty</button>
+              <button class="other-button" id=update-order-qty-${botSlug}" onclick="updateOrderQuantity('${botSlug}')">Update Order Qty</button>
               <button class="other-button" onclick="clearLogs('${botSlug}')">Clear Logs</button>
               <button class="other-button" onclick="exportLogs('${botSlug}')">Export Logs</button>
             </div>
@@ -669,6 +669,7 @@
             const btnStopYes     = document.getElementById(`stop-side-0-${botSlug}`);
             const btnStopNo      = document.getElementById(`stop-side-1-${botSlug}`);
             const removeBotIcon = document.getElementsByClassName(`.remove-bot`);
+            const updateOrderQty = document.getElementById(`update-order-qty-${botSlug}`);
 
             // Reset all buttons to enabled by default
             if(btnGlobalStart) btnGlobalStart.disabled = false;
@@ -690,6 +691,7 @@
               if(btnStopNo) btnStopNo.disabled = true;
               if(btnStopYes) btnStopYes.disabled = true;
               if(btnGlobalStop) btnGlobalStop.disabled = true;
+              if(updateOrderQty) updateOrderQty.disabled = true;
             }
             else if (status.startsWith("Running (")) {
               // Expecting status like "Running (Yes)" or "Running (No)"
