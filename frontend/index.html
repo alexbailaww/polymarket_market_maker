@@ -384,18 +384,18 @@
           <p>Current Order Quantity: <strong id="current-qty-${botSlug}">Loading...</strong></p>
           <div class="status">Status: <span id="status-${botSlug}">Not Running</span></div>
           <div class="buttons">
-            <!-- Both Sides -->
+            <!-- Global Controls -->
             <div class="button-row">
-              <button class="start-button" onclick="startBot('${botSlug}')">Start</button>
-              <button class="stop-button" onclick="stopBot('${botSlug}')">Stop</button>
+              <button class="start-button" id="start-${botSlug}" onclick="startBot('${botSlug}')">Start</button>
+              <button class="stop-button" id="stop-${botSlug}" onclick="stopBot('${botSlug}')">Stop</button>
             </div>
             <br/>
-            <!-- Single side using outcome labels -->
+            <!-- Side-specific Buttons with Outcome Labels -->
             <div class="button-row">
-              <button class="start-button" onclick="startSide('${botSlug}', 0)">Start ${side0Outcome}</button>
-              <button class="start-button" onclick="startSide('${botSlug}', 1)">Start ${side1Outcome}</button>
-              <button class="stop-button" onclick="stopSide('${botSlug}', 0)">Stop ${side0Outcome}</button>
-              <button class="stop-button" onclick="stopSide('${botSlug}', 1)">Stop ${side1Outcome}</button>
+              <button class="start-button" id="start-side-0-${botSlug}" onclick="startSide('${botSlug}', 0)">Start ${side0Outcome}</button>
+              <button class="start-button" id="start-side-1-${botSlug}" onclick="startSide('${botSlug}', 1)">Start ${side1Outcome}</button>
+              <button class="stop-button" id="stop-side-0-${botSlug}" onclick="stopSide('${botSlug}', 0)">Stop ${side0Outcome}</button>
+              <button class="stop-button" id="stop-side-1-${botSlug}" onclick="stopSide('${botSlug}', 1)">Stop ${side1Outcome}</button>
             </div>
             <br/>
             <div class="button-row">
@@ -640,24 +640,74 @@
           const data = await resp.json();
           const tasks = data.tasks; // Each object: { market_slug, status }
 
-          // Create a set of unique market slugs from the tasks array.
+          // Update Active Bots count as before.
           const activeMarketSlugs = new Set(tasks.map(task => task.market_slug));
           const activeCount = activeMarketSlugs.size;
-
-          // Update the Active Bots / Sides tab with the count.
           const tasksOutput = document.getElementById("tasks-output");
           tasksOutput.textContent = activeCount > 0 ? `Active Bots: ${activeCount}` : "None";
 
-          // (Optionally, you may still update each bot card status as before.)
-          selectedMarkets.forEach(m => {
-            const botSlug = m.market_slug;
-            const statusElem = document.getElementById(`status-${botSlug}`);
-            if (!statusElem) return;
-            // Find the consolidated task object for this market.
+          // For each selected market, adjust button states based on task status.
+          selectedMarkets.forEach(market => {
+            const botSlug = market.market_slug;
+            // Find the task for this market.
             const taskObj = tasks.find(t => t.market_slug === botSlug);
-            const statusText = taskObj ? taskObj.status : "Not Running";
-            statusElem.textContent = statusText;
-            statusElem.style.color = (statusText === "Not Running") ? "red" : "lime";
+            let status = taskObj ? taskObj.status : "Not Running";
+
+            // Get button elements by their IDs:
+            const btnGlobalStart = document.getElementById(`start-${botSlug}`);
+            const btnGlobalStop  = document.getElementById(`stop-${botSlug}`);
+            const btnStartYes    = document.getElementById(`start-side-0-${botSlug}`);
+            const btnStartNo     = document.getElementById(`start-side-1-${botSlug}`);
+            const btnStopYes     = document.getElementById(`stop-side-0-${botSlug}`);
+            const btnStopNo      = document.getElementById(`stop-side-1-${botSlug}`);
+
+            // Reset all buttons to enabled by default
+            if(btnGlobalStart) btnGlobalStart.disabled = false;
+            if(btnStartYes) btnStartYes.disabled = false;
+            if(btnStartNo) btnStartNo.disabled = false;
+            if(btnStopYes) btnStopYes.disabled = false;
+            if(btnStopNo) btnStopNo.disabled = false;
+
+            // Apply disabling rules based on status:
+            if (status === "Running (Both)") {
+              // If both sides are running, disable the global start and both side start buttons.
+              if(btnGlobalStart) btnGlobalStart.disabled = true;
+              if(btnStartYes) btnStartYes.disabled = true;
+              if(btnStartNo) btnStartNo.disabled = true;
+            }
+            else if (status === "Not Running") {
+              // If both sides are running, disable the global start and both side start buttons.
+              if(btnStopNo) btnStopNo.disabled = true;
+              if(btnStopYes) btnStopYes.disabled = true;
+              if(btnGlobalStop) btnGlobalStop.disabled = true;
+            }
+            else if (status.startsWith("Running (")) {
+              // Expecting status like "Running (Yes)" or "Running (No)"
+              const match = status.match(/Running \((.+)\)/);
+              if (match) {
+                const runningOutcome = match[1];
+                if(btnGlobalStart) btnGlobalStart.disabled = true;
+                if (runningOutcome === "Yes") {
+                  // Market is running on Yes, so disable:
+                  //   - Start Yes (because it's already running)
+                  //   - Stop No (because No side isn't running)
+                  if(btnStartYes) btnStartYes.disabled = true;
+                  if(btnStopNo) btnStopNo.disabled = true;
+                } else if (runningOutcome === "No") {
+                  // Market is running on No, so disable:
+                  //   - Start No (because it's already running)
+                  //   - Stop Yes (because Yes side isn't running)
+                  if(btnStartNo) btnStartNo.disabled = true;
+                  if(btnStopYes) btnStopYes.disabled = true;
+                }
+              }
+            }
+            // Optionally update the status element's text:
+            const statusElem = document.getElementById(`status-${botSlug}`);
+            if(statusElem) {
+              statusElem.textContent = status;
+              statusElem.style.color = (status === "Not Running") ? "red" : "lime";
+            }
           });
           updateClearInactiveButton();
         } catch (error) {
