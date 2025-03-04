@@ -230,7 +230,7 @@
   <div id="market-search">
     <input type="text" id="search-input" placeholder="Enter market title..." autocomplete="off" oninput="searchMarkets()" />
     <div id="suggestions"></div>
-    <div id="selected-markets"></div>
+    <!-- <div id="selected-markets"></div> -->
     <button id="clear-inactive" onclick="clearInactiveSelections()">Clear Inactive Selections</button>
   </div>
 
@@ -242,7 +242,7 @@
 
   <!-- Bots header -->
   <div id="bots-header">
-    <h2>Deployed Bot Tabs</h2>
+    <h2> Bot Tabs Panel</h2>
   </div>
 
   <!-- Bots container -->
@@ -323,17 +323,17 @@
     /* ============================
        Update Selected Chips
        ============================ */
-    function updateSelectedDisplay() {
-      const selectedDiv = document.getElementById("selected-markets");
-      selectedDiv.innerHTML = "";
-      selectedMarkets.forEach(market => {
-        const chip = document.createElement("span");
-        chip.className = "chip";
-        chip.textContent = market.question;
-        selectedDiv.appendChild(chip);
-      });
-      updateClearInactiveButton();
-    }
+    // function updateSelectedDisplay() {
+    //   const selectedDiv = document.getElementById("selected-markets");
+    //   selectedDiv.innerHTML = "";
+    //   selectedMarkets.forEach(market => {
+    //     const chip = document.createElement("span");
+    //     chip.className = "chip";
+    //     chip.textContent = market.question;
+    //     selectedDiv.appendChild(chip);
+    //   });
+    //   updateClearInactiveButton();
+    // }
 
     function updateClearInactiveButton() {
       const clearBtn = document.getElementById("clear-inactive");
@@ -412,10 +412,18 @@
         // Connect logs WebSocket for this market
         connectWebSocket(botSlug);
       });
-      updateSelectedDisplay();
+      // updateSelectedDisplay();
     }
 
     function removeBot(marketSlug) {
+      // Check the status element for this bot
+      const statusElem = document.getElementById(`status-${marketSlug}`);
+      if (statusElem && statusElem.textContent.trim() !== "Not Running") {
+        alert("You cannot close this bot tab while it is running.");
+        return;
+      }
+      
+      // Otherwise, remove the bot from selectedMarkets and update the UI.
       const index = selectedMarkets.findIndex(m => m.market_slug === marketSlug);
       if (index !== -1) {
         selectedMarkets.splice(index, 1);
@@ -644,7 +652,7 @@
           const activeMarketSlugs = new Set(tasks.map(task => task.market_slug));
           const activeCount = activeMarketSlugs.size;
           const tasksOutput = document.getElementById("tasks-output");
-          tasksOutput.textContent = activeCount > 0 ? `Active Bots: ${activeCount}` : "None";
+          tasksOutput.textContent = activeCount > 0 ? `${activeCount}` : "None";
 
           // For each selected market, adjust button states based on task status.
           selectedMarkets.forEach(market => {
@@ -660,6 +668,7 @@
             const btnStartNo     = document.getElementById(`start-side-1-${botSlug}`);
             const btnStopYes     = document.getElementById(`stop-side-0-${botSlug}`);
             const btnStopNo      = document.getElementById(`stop-side-1-${botSlug}`);
+            const removeBotIcon = document.getElementsByClassName(`.remove-bot`);
 
             // Reset all buttons to enabled by default
             if(btnGlobalStart) btnGlobalStart.disabled = false;
@@ -674,6 +683,7 @@
               if(btnGlobalStart) btnGlobalStart.disabled = true;
               if(btnStartYes) btnStartYes.disabled = true;
               if(btnStartNo) btnStartNo.disabled = true;
+              if(removeBotIcon) removeBotIcon.disabled = true;
             }
             else if (status === "Not Running") {
               // If both sides are running, disable the global start and both side start buttons.
@@ -687,6 +697,7 @@
               if (match) {
                 const runningOutcome = match[1];
                 if(btnGlobalStart) btnGlobalStart.disabled = true;
+                if(removeBotIcon) removeBotIcon.disabled = true;
                 if (runningOutcome === "Yes") {
                   // Market is running on Yes, so disable:
                   //   - Start Yes (because it's already running)

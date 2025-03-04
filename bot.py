@@ -19,6 +19,7 @@ logging.basicConfig(level=logging.INFO, format="%(message)s", handlers=[RichHand
 
 
 async def run_single_side(client, market, token_index: int):
+    balance = fetch_balance()
     """
     Handles the entire bot logic for *one* side (one token_id) of the market,
     in its own task. All log messages are prefixed by "(outcome)" in bold magenta.
@@ -305,7 +306,12 @@ async def run_single_side(client, market, token_index: int):
                 )
 
                 current_balance = fetch_balance()
-                if (updated_qty * current_order_price) > current_balance:
+
+                current_orders = get_market_active_orders(client, market_id)
+                reserved_funds = sum(o["price"] * o["quantity"] for o in current_orders if o["asset_id"] == token_id)
+                available_balance = current_balance - reserved_funds
+
+                if (updated_qty * current_order_price) > available_balance:
                     max_qty = int(current_balance // current_order_price)
                     logging.info(
                         f"{prefix} [bold red]Order qty update failed![/bold red] "
@@ -344,7 +350,8 @@ async def run_single_side(client, market, token_index: int):
                 except PolyApiException as e:
                     if "not enough balance / allowance" in str(e).lower():
                         logging.info(
-                            f"{prefix} [bold red]Allowance problem![/bold red] Cannot update order quantity.",
+                            f"{prefix} [bold red]Too expensive![/bold red] "
+                            f"Cannot update order on quantity change.",
                             extra={"bot_slug": market_slug},
                         )
                         cancel_market_orders(client, market_id, token_id)
@@ -365,6 +372,14 @@ async def run_single_side(client, market, token_index: int):
             extra={"bot_slug": market["market_slug"]},
         )
         raise
+    except PolyApiException as e:
+        if "not enough balance / allowance" in str(e).lower():
+            logging.info(
+                f"{prefix} [bold red]Balance / Allowance Error[/bold red] ",
+                extra={"bot_slug": market_slug},
+            )
+        else:
+            raise
     finally:
         # Runs whether the bot stops due to fill, cancellation, or error.
         logging.info(
