@@ -22,31 +22,32 @@ class BotManager:
         """
         market_slug = market["market_slug"]
         task_key = (market_slug, token_index)
+        outcome = market['tokens'][token_index]['outcome']
 
         try:
             while True:
                 try:
-                    logging.info(
-                        f"Starting side={token_index} for market [bold green]{market_slug}[/bold green]",
-                        extra={"bot_slug": market_slug}
-                    )
+                    # logging.info(
+                    #     f"Starting side '{outcome}' for market [bold green]{market_slug}[/bold green]",
+                    #     extra={"bot_slug": market_slug}
+                    # )
                     await run_single_side(self.client, market, token_index)
                 except asyncio.CancelledError:
                     logging.info(
-                        f"Side {token_index} for market [bold red]{market_slug}[/bold red] was cancelled.",
+                        f"[bold magenta]({outcome})[/bold magenta] Side for market [bold red]{market_slug}[/bold red] was cancelled.",
                         extra={"bot_slug": market_slug}
                     )
                     break
                 except Exception as e:
                     logging.info(
-                        f"Bot side={token_index} for market [bold red]{market_slug}[/bold red] encountered an error: {e}",
+                        f"[bold magenta]({outcome})[/bold magenta] Bot side for market [bold red]{market_slug}[/bold red] encountered an error: {e}",
                         exc_info=True,
                         extra={"bot_slug": market_slug}
                     )
                     # Wait before restarting to avoid tight error loops
                     await asyncio.sleep(5)
                     logging.info(
-                        f"Restarting side={token_index} for market [bold orange]{market_slug}[/bold orange]...",
+                        f"[bold magenta]({outcome})[/bold magenta] Restarting side for market [bold orange]{market_slug}[/bold orange]...",
                         extra={"bot_slug": market_slug}
                     )
                 else:
@@ -56,10 +57,10 @@ class BotManager:
             # Cleanup if we exit the while True
             if task_key in self.tasks:
                 self.tasks.pop(task_key)
-            logging.info(
-                f"Bot side={token_index} for market [bold red]{market_slug}[/bold red] has stopped.",
-                extra={"bot_slug": market_slug}
-            )
+            # logging.info(
+            #     f"[bold magenta]({outcome})[/bold magenta] Bot side for market [bold red]{market_slug}[/bold red] has stopped.",
+            #     extra={"bot_slug": market_slug}
+            # )
 
     async def start_bot(self, market):
         """
@@ -91,13 +92,13 @@ class BotManager:
         task = self.tasks.get(task_key)
         if task:
             task.cancel()
-            logging.info(
-                f"Cancelled side={token_index} for market [bold red]{market_slug}[/bold red].",
-                extra={"bot_slug": market_slug}
-            )
+            # logging.info(
+            #     f"Cancelled side={token_index} for market [bold red]{market_slug}[/bold red].",
+            #     extra={"bot_slug": market_slug}
+            # )
         else:
             logging.info(
-                f"No running side={token_index} for market [bold red]{market_slug}[/bold red].",
+                f"No running side for market [bold red]{market_slug}[/bold red].",
                 extra={"bot_slug": market_slug}
             )
 
@@ -119,7 +120,7 @@ class BotManager:
                 master_task = asyncio.create_task(self.start_bot(market))
                 self.tasks[(slug, 'both')] = master_task
 
-    async def stop_all(self):
+    async def stop_all(self):  
         """
         Cancels all running bot tasks (both sides) and waits for them to complete.
         """
@@ -127,7 +128,7 @@ class BotManager:
         # Cancel everything
         for key, task in list(self.tasks.items()):
             task.cancel()
-        # Clear them out
+        # Clear them out 
         self.tasks.clear()
         logging.info("[bold red]All bots have been stopped.[/bold red]", extra={"bot_slug": "global"})
 
@@ -143,16 +144,17 @@ class BotManager:
                 for token_index in [0, 1]:
                     task_key = (slug, token_index)
                     task = self.tasks.get(task_key)
+                    outcome = market['tokens'][token_index]['outcome']
                     if task is not None and task.done():
                         # If it's done, check if it was cancelled or had an exception
                         if task.cancelled():
                             logging.info(
-                                f"Side={token_index} for market [bold red]{slug}[/bold red] was manually cancelled. Not restarting.",
+                                f"Side '{outcome}' for market [bold red]{slug}[/bold red] was manually cancelled. Not restarting.",
                                 extra={"bot_slug": slug}
                             )
                         elif task.exception():
                             logging.info(
-                                f"Side={token_index} for market [bold red]{slug}[/bold red] failed unexpectedly, restarting.",
+                                f"Side '{outcome}' for market [bold red]{slug}[/bold red] failed unexpectedly, restarting.",
                                 extra={"bot_slug": slug}
                             )
                             # Restart that side
@@ -160,7 +162,7 @@ class BotManager:
                             self.tasks[task_key] = new_task
                         else:
                             logging.info(
-                                f"Side={token_index} for market [bold orange]{slug}[/bold orange] ended normally. Restarting it.",
+                                f"Side '{outcome}' for market [bold orange]{slug}[/bold orange] ended normally. Restarting it.",
                                 extra={"bot_slug": slug}
                             )
                             new_task = asyncio.create_task(self.start_bot_side(market, token_index))

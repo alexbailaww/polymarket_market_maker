@@ -25,6 +25,14 @@ from pydantic import BaseModel
 # Utility for tracking usage
 from api_usage import get_api_usage
 
+# helper function
+def find_outcome_name(markets, market_slug, side_index):
+    for m in markets:
+        if m["market_slug"] == market_slug:
+            if "tokens" in m and len(m["tokens"]) > side_index:
+                return m["tokens"][side_index].get("outcome", f"Side{side_index}")
+    return f"Side{side_index}"
+
 # Basic logging configuration using Rich
 logging.basicConfig(level=logging.INFO, format="%(message)s", handlers=[RichHandler()])
 memory_handler = InMemoryLogHandler()
@@ -128,7 +136,7 @@ async def start_side(market_slug: str, token_index: int):
     # Start that single side
     side_task = asyncio.create_task(manager.start_bot_side(market, token_index))
     manager.tasks[task_key] = side_task
-    return {"status": f"Started side {token_index} for market {market_slug}."}
+    return {"status": f"Started side for market {market_slug}."}
 
 @app.post("/stop_side/{market_slug}/{token_index}")
 async def stop_side(market_slug: str, token_index: int):
@@ -136,7 +144,7 @@ async def stop_side(market_slug: str, token_index: int):
     Stop only one side (0 or 1) of the given market.
     """
     manager.stop_bot_side(market_slug, token_index)
-    return {"status": f"Requested stop for side={token_index} of {market_slug}."}
+    return {"status": f"Requested stop for side of {market_slug}."}
 
 @app.post("/start_all")
 async def start_all(confirmed: list = Body(...)):
@@ -193,11 +201,47 @@ async def get_markets():
 @app.get("/tasks")
 async def get_tasks():
     """
-    Return a list of keys in manager.tasks.
-    Each key is (market_slug, token_index) or (market_slug, 'both').
+    Return a consolidated status per market using only individual side tasks
+    that are still active (i.e. not done). The "both" key is ignored.
     """
-    # Convert tuple keys to strings for JSON
-    return {"tasks": [str(k) for k in manager.tasks.keys()]}
+    result = []
+    # Iterate over keys that are individual sides and are not done.
+    for (slug, side) in manager.tasks.keys():
+        if isinstance(side, int):
+            task = manager.tasks[(slug, side)]
+            # Only include tasks that are not finished.
+            if not task.done():
+                outcome = find_outcome_name(manager.markets, slug, side)
+                result.append({
+                    "market_slug": slug,
+                    "side_index": side,
+                    "outcome": outcome
+                })
+    # Consolidate by market_slug
+    consolidated = {}
+    for task in result:
+        slug = task["market_slug"]
+        if slug not in consolidated:
+            consolidated[slug] = []
+        consolidated[slug].append(task["side_index"])
+    
+    final = []
+    for slug, sides in consolidated.items():
+        if 0 in sides and 1 in sides:
+            status = "Running (Both)"
+        elif 0 in sides:
+            outcome = find_outcome_name(manager.markets, slug, 0)
+            status = f"Running ({outcome})"
+        elif 1 in sides:
+            outcome = find_outcome_name(manager.markets, slug, 1)
+            status = f"Running ({outcome})"
+        else:
+            status = "Not Running"
+        final.append({
+            "market_slug": slug,
+            "status": status
+        })
+    return {"tasks": final}
 
 @app.get("/suggest_markets")
 async def suggest_markets(query: str):

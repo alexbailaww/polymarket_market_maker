@@ -236,7 +236,7 @@
 
   <!-- Task list -->
   <div id="task-list">
-    <b>Active Bots / Sides:</b>
+    <b>Active Bots:</b>
     <div id="tasks-output">None</div>
   </div>
 
@@ -359,6 +359,7 @@
         const question = market.question;
         const displayIndex = index + 1;
         const minShares = market?.rewards?.min_size || 1;
+        const currentShares = market?.rewards?.current_size || 0;
 
         // We'll label side 0 and side 1 by their "outcome":
         let side0Outcome = "Side0";
@@ -380,6 +381,7 @@
           </div>
           <p>${question}</p>
           <p>Min Order Quantity: <strong>${minShares}</strong></p>
+          <p>Current Order Quantity: <strong>${currentShares}</strong></p>
           <div class="status">Status: <span id="status-${botSlug}">Not Running</span></div>
           <div class="buttons">
             <!-- Both Sides -->
@@ -607,65 +609,38 @@
     /* ============================
        Periodically Check Tasks
        ============================ */
-    async function checkTasks() {
-      try {
-        const resp = await fetch("http://localhost:8000/tasks");
-        if (!resp.ok) {
-          throw new Error("Failed to fetch tasks");
+      async function checkTasks() {
+        try {
+          const resp = await fetch("http://localhost:8000/tasks");
+          if (!resp.ok) throw new Error("Failed to fetch tasks");
+          const data = await resp.json();
+          const tasks = data.tasks; // Each object: { market_slug, status }
+
+          // Create a set of unique market slugs from the tasks array.
+          const activeMarketSlugs = new Set(tasks.map(task => task.market_slug));
+          const activeCount = activeMarketSlugs.size;
+
+          // Update the Active Bots / Sides tab with the count.
+          const tasksOutput = document.getElementById("tasks-output");
+          tasksOutput.textContent = activeCount > 0 ? `Active Bots: ${activeCount}` : "None";
+
+          // (Optionally, you may still update each bot card status as before.)
+          selectedMarkets.forEach(m => {
+            const botSlug = m.market_slug;
+            const statusElem = document.getElementById(`status-${botSlug}`);
+            if (!statusElem) return;
+            // Find the consolidated task object for this market.
+            const taskObj = tasks.find(t => t.market_slug === botSlug);
+            const statusText = taskObj ? taskObj.status : "Not Running";
+            statusElem.textContent = statusText;
+            statusElem.style.color = (statusText === "Not Running") ? "red" : "lime";
+          });
+          updateClearInactiveButton();
+        } catch (error) {
+          console.error("Error fetching tasks:", error);
         }
-        const data = await resp.json();
-        activeTasks = data.tasks; // array of strings like: ["('(slug, 0)')", ...]
-
-        if (JSON.stringify(activeTasks) !== JSON.stringify(previousActiveTasks)) {
-          previousActiveTasks = [...activeTasks];
-        }
-
-        const tasksOutput = document.getElementById("tasks-output");
-        if (activeTasks.length === 0) {
-          tasksOutput.textContent = "None";
-        } else {
-          tasksOutput.innerHTML = activeTasks.map(t => `<div>${t}</div>`).join("");
-        }
-
-        // Update each selected market's status
-        selectedMarkets.forEach(m => {
-          const botSlug = m.market_slug;
-          const statusElem = document.getElementById(`status-${botSlug}`);
-          if (!statusElem) return;
-
-          // Grab outcome labels to display them
-          let side0Outcome = "Side0";
-          let side1Outcome = "Side1";
-          if (m.tokens && m.tokens.length >= 2) {
-            side0Outcome = m.tokens[0].outcome || "Side0";
-            side1Outcome = m.tokens[1].outcome || "Side1";
-          }
-
-          const side0Running = activeTasks.some(x => x.includes(`(${botSlug}, 0)`));
-          const side1Running = activeTasks.some(x => x.includes(`(${botSlug}, 1)`));
-
-          let text = "Not Running";
-          let color = "red";
-          if (side0Running && side1Running) {
-            text = `${side0Outcome} & ${side1Outcome} Running`;
-            color = "lime";
-          } else if (side0Running) {
-            text = `${side0Outcome} Running`;
-            color = "lime";
-          } else if (side1Running) {
-            text = `${side1Outcome} Running`;
-            color = "lime";
-          }
-          statusElem.textContent = text;
-          statusElem.style.color = color;
-        });
-
-        updateClearInactiveButton();
-      } catch (error) {
-        console.error("Error fetching tasks:", error);
       }
-    }
-    setInterval(checkTasks, 2000);
+      setInterval(checkTasks, 2000);
 
     /* ============================
        Shutdown
