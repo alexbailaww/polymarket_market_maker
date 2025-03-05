@@ -18,18 +18,14 @@ from py_clob_client.exceptions import PolyApiException
 
 logging.basicConfig(level=logging.INFO, format="%(message)s", handlers=[RichHandler()])
 
-
 async def run_single_side(client, market, token_index: int):
     """
     Handles the entire bot logic for *one* side (one token_id) of the market,
     in its own task. All log messages are prefixed by "(outcome)" in bold magenta.
-
-    :param token_index: integer 0 or 1, selecting which market['tokens'][...] to handle.
     """
     try:
         market_slug = market["market_slug"]
         market_id   = market["condition_id"]
-        market_spread = market["rewards"]["max_spread"]
         market_min_order_size = market["rewards"]["min_size"]
 
         # Assign a default order quantity for this market (shared storage).
@@ -44,8 +40,9 @@ async def run_single_side(client, market, token_index: int):
         # Prefix for logs
         prefix = f"[bold magenta]({outcome})[/bold magenta]"
 
-        # If you want to pick a different offset or different logic for each side:
-        TOP_BOOK_TICKS = 2 if market_spread <= 1 else 1
+        # We'll update TOP_BOOK_TICKS based on the current market spread.
+        # Initially, we use the static value, but it will be updated on every event.
+        TOP_BOOK_TICKS = 2  # default; will be updated after first bid/ask event
 
         # Initialize state variables
         current_min_tick_size   = float(market.get("minimum_tick_size", 0.01))
@@ -64,7 +61,7 @@ async def run_single_side(client, market, token_index: int):
         # ------------------ Listeners for *this* token_id ------------------
 
         async def best_bid_listener():
-            # Subscribe to best-bid changes for just this token_id
+            # Subscribe to best-bid/ask changes for just this token_id.
             async for data in get_best_bid_ask([token_id]):
                 # Tag the event with type = "best_bid"
                 await event_queue.put({"type": "best_bid", **data})
@@ -110,15 +107,28 @@ async def run_single_side(client, market, token_index: int):
             e_type = event_data["type"]
 
             if e_type == "best_bid":
+                # Now we extract both best_bid and best_ask from the event
                 new_best_bid = float(event_data["best_bid"])
+                new_best_ask = float(event_data["best_ask"])
+                # Compute the current market spread dynamically
+                new_market_spread = new_best_ask - new_best_bid
+                # Update TOP_BOOK_TICKS based on the new spread
+                TOP_BOOK_TICKS = 2 if new_market_spread <= 1 else 1
+
+                logging.info(
+                    f"{prefix} [bold green]Market spread updated:[/bold green] "
+                    f"best_ask - best_bid = [bold cyan]{new_market_spread:.3f}[/bold cyan]",
+                    extra={"bot_slug": market_slug},
+                )
+
                 if not initial_order_placed:
-                    current_best_bid    = new_best_bid
+                    current_best_bid = new_best_bid
                     current_order_price = new_best_bid - (TOP_BOOK_TICKS * current_min_tick_size)
                     order_qty = get_order_quantity()
 
                     logging.info(
                         f"{prefix} [bold green]Initial read:[/bold green] "
-                        f"best_bid=[bold cyan]{new_best_bid:.3f}[/bold cyan], "
+                        f"best_bid=[bold cyan]{new_best_bid:.3f}[/bold cyan], best_ask=[bold cyan]{new_best_ask:.3f}[/bold cyan], "
                         f"tick_size=[bold cyan]{current_min_tick_size:.3f}[/bold cyan]",
                         extra={"bot_slug": market_slug},
                     )
@@ -146,8 +156,8 @@ async def run_single_side(client, market, token_index: int):
                             break
                         else:
                             raise
-                    initial_order_placed    = True
-                    current_order_quantity  = order_qty
+                    initial_order_placed = True
+                    current_order_quantity = order_qty
                 else:
                     # If best bid changes significantly, we may want to move our order
                     threshold = current_min_tick_size * TOP_BOOK_TICKS
@@ -158,7 +168,7 @@ async def run_single_side(client, market, token_index: int):
                             extra={"bot_slug": market_slug},
                         )
                         current_best_bid = new_best_bid
-                        new_order_price  = new_best_bid - (TOP_BOOK_TICKS * current_min_tick_size)
+                        new_order_price = new_best_bid - (TOP_BOOK_TICKS * current_min_tick_size)
 
                         if abs(new_order_price - current_order_price) > threshold:
                             order_qty = get_order_quantity()
@@ -177,7 +187,6 @@ async def run_single_side(client, market, token_index: int):
                                     extra={"bot_slug": market_slug},
                                 )
                                 cancel_order(client, current_buy_order["id"])
-
                             logging.info(
                                 f"{prefix} [bold yellow]Placing new BUY[/bold yellow] "
                                 f"at [bold cyan]{new_order_price:.3f}[/bold cyan], qty=[bold cyan]{order_qty}[/bold cyan]. "
@@ -197,7 +206,7 @@ async def run_single_side(client, market, token_index: int):
                                     break
                                 else:
                                     raise
-                            current_order_price    = new_order_price
+                            current_order_price = new_order_price
                             current_order_quantity = order_qty
                         else:
                             logging.info(
@@ -240,7 +249,6 @@ async def run_single_side(client, market, token_index: int):
                                     extra={"bot_slug": market_slug},
                                 )
                                 cancel_order(client, current_buy_order["id"])
-
                             logging.info(
                                 f"{prefix} [bold yellow]Placing new BUY[/bold yellow] "
                                 f"at [bold cyan]{new_order_price:.3f}[/bold cyan], qty=[bold cyan]{order_qty}[/bold cyan]. "
@@ -260,7 +268,7 @@ async def run_single_side(client, market, token_index: int):
                                     break
                                 else:
                                     raise
-                            current_order_price    = new_order_price
+                            current_order_price = new_order_price
                             current_order_quantity = order_qty
                         else:
                             logging.info(
@@ -307,11 +315,6 @@ async def run_single_side(client, market, token_index: int):
 
                 current_balance = fetch_balance()
 
-                # current_orders = get_market_active_orders(client, market_id)
-                # print(json.dumps(current_orders, indent = 4))
-                # reserved_funds = sum(float(o["price"]) * float(o["original_size"]) for o in current_orders if o["asset_id"] == token_id)
-                # available_balance = current_balance - reserved_funds
-
                 if (updated_qty * current_order_price) > current_balance:
                     max_qty = int(current_balance // current_order_price)
                     logging.info(
@@ -339,7 +342,6 @@ async def run_single_side(client, market, token_index: int):
                         extra={"bot_slug": market_slug},
                     )
                     cancel_order(client, current_buy_order["id"])
-
                 logging.info(
                     f"{prefix} [bold yellow]Placing updated BUY[/bold yellow] at "
                     f"[bold cyan]{current_order_price:.3f}[/bold cyan], qty=[bold cyan]{updated_qty}[/bold cyan]. "
