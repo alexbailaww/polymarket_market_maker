@@ -113,7 +113,7 @@ async def run_single_side(client, market, token_index: int):
                 # Compute the current market spread dynamically
                 new_market_spread = new_best_ask - new_best_bid
                 # Update TOP_BOOK_TICKS based on the new spread
-                TOP_BOOK_TICKS = 2 if new_market_spread <= 1 else 1
+                TOP_BOOK_TICKS = 1 if new_market_spread <= 1 else 2
 
                 logging.info(
                     f"{prefix} [bold green]Market spread updated:[/bold green] "
