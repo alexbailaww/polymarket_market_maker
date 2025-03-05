@@ -15,6 +15,7 @@ def create_client():
 
     host = os.getenv('HOST')
     key = os.getenv('PK')
+    address = os.getenv('PBK')
     chain_id = 137
 
     if not host:
@@ -30,7 +31,7 @@ def create_client():
         api_passphrase=os.getenv("CLOB_PASS_PHRASE"),
     )
 
-    client = ClobClient(host, key = key, chain_id = chain_id, creds = creds)
+    client = ClobClient(host, key = key, chain_id = chain_id, creds = creds, signature_type=1, funder = address)
 
     print('[green]CLOB Client initialized.\n[/green]')
 
