@@ -685,6 +685,11 @@
               if(btnStartYes) btnStartYes.disabled = true;
               if(btnStartNo) btnStartNo.disabled = true;
               if(removeBotIcon) removeBotIcon.disabled = true;
+              // the rest are available
+              if(btnStopYes) btnStopYes.disabled = false;
+              if(btnStopNo) btnStopNo.disabled = false;
+              if(updateOrderQty) updateOrderQty.disabled = false;
+              if(btnGlobalStop) btnGlobalStop.disabled = false;
             }
             else if (status === "Not Running") {
               // If both sides are running, disable the global start and both side start buttons.
@@ -692,6 +697,11 @@
               if(btnStopYes) btnStopYes.disabled = true;
               if(btnGlobalStop) btnGlobalStop.disabled = true;
               if(updateOrderQty) updateOrderQty.disabled = true;
+              // the rest are available
+              if(btnGlobalStart) btnGlobalStart.disabled = false;
+              if(removeBotIcon) removeBotIcon.disabled = false;
+              if(btnStartYes) btnStartYes.disabled = false;
+              if(btnStartNo) btnStartNo.disabled = false;
             }
             else if (status.startsWith("Running (")) {
               // Expecting status like "Running (Yes)" or "Running (No)"
@@ -699,6 +709,7 @@
               if (match) {
                 const runningOutcome = match[1];
                 if(btnGlobalStart) btnGlobalStart.disabled = true;
+                if(btnGlobalStop) btnGlobalStop.disabled = false;
                 if(removeBotIcon) removeBotIcon.disabled = true;
                 if (runningOutcome === "Yes") {
                   // Market is running on Yes, so disable:
@@ -706,12 +717,16 @@
                   //   - Stop No (because No side isn't running)
                   if(btnStartYes) btnStartYes.disabled = true;
                   if(btnStopNo) btnStopNo.disabled = true;
+                  if(btnStartNo) btnStartNo.disabled = false;
+                  if(btnStopYes) btnStopYes.disabled = false;
                 } else if (runningOutcome === "No") {
                   // Market is running on No, so disable:
                   //   - Start No (because it's already running)
                   //   - Stop Yes (because Yes side isn't running)
                   if(btnStartNo) btnStartNo.disabled = true;
                   if(btnStopYes) btnStopYes.disabled = true;
+                  if(btnStartYes) btnStartYes.disabled = false;
+                  if(btnStopNo) btnStopNo.disabled = false;
                 }
               }
             }

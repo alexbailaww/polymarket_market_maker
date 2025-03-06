@@ -87,6 +87,7 @@ async def read_index():
 
 @app.post("/start_bot/{market_slug}")
 async def start_bot(market_slug: str):
+    print(manager.tasks.keys())
     """
     Start BOTH sides for the given market_slug.
     Will spawn two side tasks (0 and 1).
@@ -109,11 +110,11 @@ async def start_bot(market_slug: str):
     # Launch both sides in a single "master" task
     master_task = asyncio.create_task(manager.start_bot(market))
     # Optionally store it under a separate key if you like:
-    manager.tasks[(market_slug, "both")] = master_task
     return {"status": f"Bot {market_slug} (both sides) started."}
 
 @app.post("/stop_bot/{market_slug}")
 async def stop_bot(market_slug: str):
+    print(manager.tasks.keys())
     """
     Stop BOTH sides for the given market_slug.
     """
@@ -122,6 +123,7 @@ async def stop_bot(market_slug: str):
 
 @app.post("/start_side/{market_slug}/{token_index}")
 async def start_side(market_slug: str, token_index: int):
+    print(manager.tasks.keys())
     """
     Start only one side (0 or 1) of the given market.
     """
@@ -140,6 +142,7 @@ async def start_side(market_slug: str, token_index: int):
 
 @app.post("/stop_side/{market_slug}/{token_index}")
 async def stop_side(market_slug: str, token_index: int):
+    print(manager.tasks.keys())
     """
     Stop only one side (0 or 1) of the given market.
     """
@@ -148,6 +151,7 @@ async def stop_side(market_slug: str, token_index: int):
 
 @app.post("/start_all")
 async def start_all(confirmed: list = Body(...)):
+    print(manager.tasks.keys())
     """
     Start BOTH sides for each market in the 'confirmed' list.
     """
@@ -166,6 +170,7 @@ async def start_all(confirmed: list = Body(...)):
 
 @app.post("/stop_all")
 async def stop_all(confirmed: list = Body(...)):
+    print(manager.tasks.keys())
     """
     Stop BOTH sides for each market in the 'confirmed' list.
     """

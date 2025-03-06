@@ -89,9 +89,12 @@ class BotManager:
         Cancels a specific side if it's running.
         """
         task_key = (market_slug, token_index)
+        print(task_key)
         task = self.tasks.get(task_key)
+        print(self.tasks)
         if task:
             task.cancel()
+            print(self.tasks)
             # logging.info(
             #     f"Cancelled side={token_index} for market [bold red]{market_slug}[/bold red].",
             #     extra={"bot_slug": market_slug}

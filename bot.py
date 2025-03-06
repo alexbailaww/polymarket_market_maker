@@ -389,7 +389,19 @@ async def run_single_side(client, market, token_index: int):
             f"[bold magenta]({outcome})[/bold magenta] [bold red]Cancelling any remaining orders.[/bold red]",
             extra={"bot_slug": market["market_slug"]},
         )
-        cancel_market_orders(client, market["condition_id"], market["tokens"][token_index]["token_id"])
+        print("Cancelling orders for", market["market_slug"], token_index)
+        # Retrieve active orders for this market
+        current_orders = get_market_active_orders(client, market["condition_id"])
+        # Filter the order for this specific token (side)
+        order_to_cancel = next(
+            (o for o in current_orders if o["side"].lower() == "buy" and o["asset_id"] == market["tokens"][token_index]["token_id"]),
+            None
+        )
+        if order_to_cancel:
+            cancel_order(client, order_to_cancel["id"])
+            print(f"Cancelled order {order_to_cancel['id']} for token {market['tokens'][token_index]['token_id']}")
+        else:
+            print("No active order found for this side.")
 
 
 async def run_async_bot_bidAndTick(client, market):
