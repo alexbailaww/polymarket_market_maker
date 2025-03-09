@@ -250,12 +250,12 @@ async def run_single_side(client, market, token_index: int):
                                 current_order_quantity = order_qty
                             else:
                                 logging.info(
-                                    f"{prefix} Best-bid changed but below threshold, ignoring. Threshold={threshold:.3f}, change={abs(new_order_price - current_order_price):.3f}",
+                                    f"{prefix} Best-bid changed but below threshold, ignoring. Threshold=[bold cyan]{threshold:.3f}[/bold cyan], new=[bold cyan]{new_order_price:.3f}[/bold cyan], current=[bold cyan]{current_order_price:.3f}[/bold cyan]",
                                     extra={"bot_slug": market_slug},
                                 )
                         else:
                             logging.info(
-                                f"{prefix} Best-bid changed but below threshold, ignoring. Threshold={threshold:.3f}, change={abs(new_order_price - current_order_price):.3f}",
+                                f"{prefix} Best-bid changed but below threshold, ignoring. Threshold=[bold cyan]{threshold:.3f}[/bold cyan], new=[bold cyan]{new_best_bid:.3f}[/bold cyan] current=[bold cyan]{current_best_bid:.3f}[/bold cyan]",
                                 extra={"bot_slug": market_slug},
                             )
 
