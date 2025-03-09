@@ -1,4 +1,4 @@
-from utils import clob_client, market, order, allowance, positions, balance
+from utils import clob_client, market, order, allowance, positions, balance, market_listener
 import json
 
 import time
@@ -13,20 +13,21 @@ print(balance.fetch_balance())
 bot = clob_client.create_client()
 order.cancel_all_orders(bot)
 
-mkt = market.get_single_byName(bot, 'Will GTA 6 cost $100+?')
+mkt = market.get_single_byName(bot, "Will Călin Georgescu win the Romanian presidential election?")
+tokenIDs = [mkt['tokens'][0]['token_id'], mkt['tokens'][1]['token_id']]
 
-print(json.dumps(mkt, indent = 4))
+print(tokenIDs)
 
-order.create_and_submit_order(bot, mkt['tokens'][0]['token_id'], BUY, 0.150, 5)
-order.create_and_submit_order(bot, mkt['tokens'][1]['token_id'], BUY, 0.150, 5)
+# async for event in market_listener.get_best_bid_ask(tokenIDs):
+#     print(json.dumps(event, indent = 4))
 
-print(len(order.get_market_active_orders(bot, mkt['condition_id'])))
-time.sleep(2)
+# print(len(order.get_market_active_orders(bot, mkt['condition_id'])))
+# time.sleep(2)
 
-order.cancel_market_orders(bot, mkt['condition_id'], mkt['tokens'][0]['token_id'])
-time.sleep(2)
+# order.cancel_market_orders(bot, mkt['condition_id'], mkt['tokens'][0]['token_id'])
+# time.sleep(2)
 
-print(len(order.get_market_active_orders(bot, mkt['condition_id'])))
+# print(len(order.get_market_active_orders(bot, mkt['condition_id'])))
 
 # print(f'Sampling Markets: {len(sampling_markets)}\nActive Markets: {activeMarkets}\nClosed Markets: {closedMarkets}\n')
 

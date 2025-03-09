@@ -4,8 +4,10 @@ from rich.logging import RichHandler
 # from rich import print
 from rich.progress import track
 import json
+import os
 
 import asyncio
+import websockets
 
 from utils.order import create_and_submit_order, cancel_order, get_market_active_orders, cancel_all_orders, cancel_market_orders
 from utils.prices_and_books import get_market_price
@@ -17,6 +19,7 @@ from order_quantities import order_quantities
 from py_clob_client.exceptions import PolyApiException
 
 logging.basicConfig(level=logging.INFO, format="%(message)s", handlers=[RichHandler()])
+
 
 async def run_single_side(client, market, token_index: int):
     """
@@ -107,7 +110,6 @@ async def run_single_side(client, market, token_index: int):
             e_type = event_data["type"]
 
             if e_type == "best_bid":
-                # Now we extract both best_bid and best_ask from the event
                 new_best_bid = float(event_data["best_bid"])
                 new_best_ask = float(event_data["best_ask"])
                 # Compute the current market spread dynamically
@@ -148,7 +150,6 @@ async def run_single_side(client, market, token_index: int):
                                 extra={"bot_slug": market_slug},
                             )
                             cancel_market_orders(client, market_id, token_id)
-                            # Cancel tasks associated with this side
                             best_bid_task.cancel()
                             tick_size_task.cancel()
                             fill_task.cancel()
@@ -159,65 +160,104 @@ async def run_single_side(client, market, token_index: int):
                     initial_order_placed = True
                     current_order_quantity = order_qty
                 else:
-                    # If best bid changes significantly, we may want to move our order
-                    threshold = current_min_tick_size * TOP_BOOK_TICKS
-                    if abs(new_best_bid - current_best_bid) > threshold:
+                    # NEW LOGIC: Check if our current order has become the best bid.
+                    if current_order_price >= new_best_bid:
                         logging.info(
-                            f"{prefix} [bold yellow]Best-bid update:[/bold yellow] "
-                            f"{current_best_bid:.3f} -> [bold cyan]{new_best_bid:.3f}[/bold cyan]",
+                            f"{prefix} [bold yellow]Our order price {current_order_price:.3f} is at or above new best bid {new_best_bid:.3f}. Updating to avoid being best bid.[/bold yellow]",
                             extra={"bot_slug": market_slug},
                         )
-                        current_best_bid = new_best_bid
                         new_order_price = new_best_bid - (TOP_BOOK_TICKS * current_min_tick_size)
-
-                        if abs(new_order_price - current_order_price) > threshold:
-                            order_qty = get_order_quantity()
-                            current_orders = get_market_active_orders(client, market_id)
+                        order_qty = get_order_quantity()
+                        current_orders = get_market_active_orders(client, market_id)
+                        logging.info(
+                            f"{prefix} Orders retrieved.",
+                            extra={"bot_slug": market_slug},
+                        )
+                        current_buy_order = next(
+                            (o for o in current_orders if o["side"].lower() == "buy" and o["asset_id"] == token_id),
+                            None,
+                        )
+                        if current_buy_order:
                             logging.info(
-                                f"{prefix} Orders retrieved.",
+                                f"{prefix} [bold yellow]Cancelling old BUY[/bold yellow] because our order became best bid.",
                                 extra={"bot_slug": market_slug},
                             )
-                            current_buy_order = next(
-                                (o for o in current_orders if o["side"].lower() == "buy" and o["asset_id"] == token_id),
-                                None,
-                            )
-                            if current_buy_order:
+                            cancel_order(client, current_buy_order["id"])
+                        logging.info(
+                            f"{prefix} [bold yellow]Placing updated BUY[/bold yellow] at [bold cyan]{new_order_price:.3f}[/bold cyan], qty=[bold cyan]{order_qty}[/bold cyan].",
+                            extra={"bot_slug": market_slug},
+                        )
+                        try:
+                            create_and_submit_order(client, token_id, "BUY", new_order_price, order_qty)
+                        except PolyApiException as e:
+                            if "not enough balance" in str(e).lower():
                                 logging.info(
-                                    f"{prefix} [bold yellow]Cancelling old BUY[/bold yellow] due to best-bid change.",
+                                    f"{prefix} [bold red]Too expensive![/bold red] Cannot update BUY; shutting down.",
                                     extra={"bot_slug": market_slug},
                                 )
-                                cancel_order(client, current_buy_order["id"])
+                                cancel_market_orders(client, market_id, token_id)
+                                break
+                            else:
+                                raise
+                        current_order_price = new_order_price
+                        current_order_quantity = order_qty
+                    else:
+                        # Fallback: update if best bid changes significantly.
+                        threshold = current_min_tick_size * TOP_BOOK_TICKS
+                        if abs(new_best_bid - current_best_bid) > threshold:
                             logging.info(
-                                f"{prefix} [bold yellow]Placing new BUY[/bold yellow] "
-                                f"at [bold cyan]{new_order_price:.3f}[/bold cyan], qty=[bold cyan]{order_qty}[/bold cyan]. "
-                                f"Total=[bold cyan]{order_qty * new_order_price:.3f}[/bold cyan]",
+                                f"{prefix} [bold yellow]Best-bid update:[/bold yellow] {current_best_bid:.3f} -> [bold cyan]{new_best_bid:.3f}[/bold cyan]",
                                 extra={"bot_slug": market_slug},
                             )
-                            try:
-                                create_and_submit_order(client, token_id, "BUY", new_order_price, order_qty)
-                            except PolyApiException as e:
-                                if "not enough balance" in str(e).lower():
+                            current_best_bid = new_best_bid
+                            new_order_price = new_best_bid - (TOP_BOOK_TICKS * current_min_tick_size)
+
+                            if abs(new_order_price - current_order_price) > threshold:
+                                order_qty = get_order_quantity()
+                                current_orders = get_market_active_orders(client, market_id)
+                                logging.info(
+                                    f"{prefix} Orders retrieved.",
+                                    extra={"bot_slug": market_slug},
+                                )
+                                current_buy_order = next(
+                                    (o for o in current_orders if o["side"].lower() == "buy" and o["asset_id"] == token_id),
+                                    None,
+                                )
+                                if current_buy_order:
                                     logging.info(
-                                        f"{prefix} [bold red]Too expensive![/bold red] "
-                                        f"Cannot update BUY; shutting down.",
+                                        f"{prefix} [bold yellow]Cancelling old BUY[/bold yellow] due to best-bid change.",
                                         extra={"bot_slug": market_slug},
                                     )
-                                    cancel_market_orders(client, market_id, token_id)
-                                    break
-                                else:
-                                    raise
-                            current_order_price = new_order_price
-                            current_order_quantity = order_qty
+                                    cancel_order(client, current_buy_order["id"])
+                                logging.info(
+                                    f"{prefix} [bold yellow]Placing new BUY[/bold yellow] at [bold cyan]{new_order_price:.3f}[/bold cyan], qty=[bold cyan]{order_qty}[/bold cyan]. "
+                                    f"Total=[bold cyan]{order_qty * new_order_price:.3f}[/bold cyan]",
+                                    extra={"bot_slug": market_slug},
+                                )
+                                try:
+                                    create_and_submit_order(client, token_id, "BUY", new_order_price, order_qty)
+                                except PolyApiException as e:
+                                    if "not enough balance" in str(e).lower():
+                                        logging.info(
+                                            f"{prefix} [bold red]Too expensive![/bold red] Cannot update BUY; shutting down.",
+                                            extra={"bot_slug": market_slug},
+                                        )
+                                        cancel_market_orders(client, market_id, token_id)
+                                        break
+                                    else:
+                                        raise
+                                current_order_price = new_order_price
+                                current_order_quantity = order_qty
+                            else:
+                                logging.info(
+                                    f"{prefix} Best-bid changed but below threshold, ignoring. Threshold={threshold:.3f}, change={abs(new_order_price - current_order_price):.3f}",
+                                    extra={"bot_slug": market_slug},
+                                )
                         else:
                             logging.info(
-                                f"{prefix} Best-bid changed but below threshold, ignoring.",
+                                f"{prefix} Best-bid changed but below threshold, ignoring. Threshold={threshold:.3f}, change={abs(new_order_price - current_order_price):.3f}",
                                 extra={"bot_slug": market_slug},
                             )
-                    else:
-                        logging.info(
-                            f"{prefix} Best-bid changed but below threshold, ignoring.",
-                            extra={"bot_slug": market_slug},
-                        )
 
             elif e_type == "tick_size":
                 new_tick_size = float(event_data["new_tick_size"])
@@ -250,8 +290,7 @@ async def run_single_side(client, market, token_index: int):
                                 )
                                 cancel_order(client, current_buy_order["id"])
                             logging.info(
-                                f"{prefix} [bold yellow]Placing new BUY[/bold yellow] "
-                                f"at [bold cyan]{new_order_price:.3f}[/bold cyan], qty=[bold cyan]{order_qty}[/bold cyan]. "
+                                f"{prefix} [bold yellow]Placing new BUY[/bold yellow] at [bold cyan]{new_order_price:.3f}[/bold cyan], qty=[bold cyan]{order_qty}[/bold cyan]. "
                                 f"Total=[bold cyan]{order_qty * new_order_price:.3f}[/bold cyan]",
                                 extra={"bot_slug": market_slug},
                             )
@@ -260,8 +299,7 @@ async def run_single_side(client, market, token_index: int):
                             except PolyApiException as e:
                                 if "not enough balance" in str(e).lower():
                                     logging.info(
-                                        f"{prefix} [bold red]Too expensive![/bold red] "
-                                        f"Cannot update order on tick-size change.",
+                                        f"{prefix} [bold red]Too expensive![/bold red] Cannot update order on tick-size change.",
                                         extra={"bot_slug": market_slug},
                                     )
                                     cancel_market_orders(client, market_id, token_id)

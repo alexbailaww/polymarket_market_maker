@@ -3,6 +3,7 @@ import json
 import websockets
 import os
 from dotenv import load_dotenv
+import datetime
 
 # Polymarket WebSocket URL for the market channel.
 WEBSOCKET_URL = "wss://ws-subscriptions-clob.polymarket.com/ws/market"
@@ -38,6 +39,7 @@ async def get_best_bid_ask(tokenIDs):
                 for event in data:
                     if event.get("event_type") == "book":
                         yield {
+                            "timestamp": datetime.datetime.fromtimestamp(int(event["timestamp"]) / 1000.0).strftime('%Y-%m-%d %H:%M:%S.%f')[:-3],  
                             "best_bid": event["bids"][-1]["price"],
                             "best_ask": event["asks"][-1]["price"],
                         }
@@ -45,6 +47,7 @@ async def get_best_bid_ask(tokenIDs):
             elif isinstance(data, dict):
                 if data.get("event_type") == "book":
                     yield {
+                        "timestamp": datetime.datetime.fromtimestamp(int(event["timestamp"]) / 1000.0).strftime('%Y-%m-%d %H:%M:%S.%f')[:-3],
                         "best_bid": data["bids"][-1]["price"],
                         "best_ask": data["asks"][-1]["price"],
                     }
@@ -157,9 +160,7 @@ async def market_events(tokenIDs):
             yield data
 
 async def main():
-    tokenIDs = [
-        "110222417228270638383974743746762302792556220380554556504458115620557107501861"
-    ]
+    tokenIDs = ['19421936073502749499295956976296494028264193035596788165532289826979364170763', '33245518756710035259466965025019863630995207982345911576600719002024360031950']
     async for event in get_best_bid_ask(tokenIDs):
         print(json.dumps(event, indent = 4))
 
