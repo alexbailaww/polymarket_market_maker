@@ -283,9 +283,9 @@
   
 
   <div id="global-controls">
-    <button onclick="startAll()">Start All Bots</button>
-    <button onclick="stopAll()">Stop All Bots</button>
-    <button class="shutdown" onclick="shutdownServer()"><b>EMERGENCY SHUTDOWN</b></button>
+    <button style="background-color: darkgreen; color: white; font-weight: bold;" onclick="startAll()">Start All Bots</button>
+    <button style="background-color: darkred; color: white; font-weight: bold;" onclick="stopAll()">Stop All Bots</button>
+    <button style="background-color: darkblue; color: white; font-weight: bold;" onclick="window.open('https://polymarket.com/')"><b>Polymarket</b></button>
   </div>
 
   <!-- Market Search Section with Dropdown Multi-select -->
@@ -431,11 +431,15 @@
           <p>Min Order Quantity: <strong id="quantity-${botSlug}">${minShares}</strong></p>
           <div class="status">Status: <span id="status-${botSlug}">Not Running</span></div>
           <div class="buttons">
-            <button onclick="startBot('${botSlug}')">Start Bot</button>
-            <button onclick="stopBot('${botSlug}')">Stop Bot</button>
-            <button onclick="updateOrderQuantity('${botSlug}')">Update Order Quantity</button>
-            <button onclick="clearLogs('${botSlug}')">Clear Logs</button>
-            <button onclick="exportLogs('${botSlug}')">Export Logs</button>
+            <button style="background-color: darkgreen; color: white; font-weight: bold;" onclick="startBot('${botSlug}')">Start Bot</button>
+            <button style="background-color: darkred; color: white; font-weight: bold;" onclick="stopBot('${botSlug}')">Stop Bot</button>
+            <br>
+            <button style="background-color: chocolate; color: white; font-weight: bold;" onclick="updateOrderQuantity('${botSlug}')">Update Order Quantity</button>
+            <br>
+            <button style="font-weight: bold;" onclick="clearLogs('${botSlug}')">Clear Logs</button>
+            <button style="font-weight: bold;" onclick="exportLogs('${botSlug}')">Export Logs</button>
+            <br>
+            <button style="background-color: darkblue; color: white; font-weight: bold;" onclick="window.open('https://polymarket.com/event/${botSlug}')">Open Market</button>
           </div>
           <h3>Logs:</h3>
           <pre class="log" id="log-${botSlug}">Waiting for logs...</pre>
