@@ -286,6 +286,10 @@
     <button style="background-color: darkgreen; color: white; font-weight: bold;" onclick="startAll()">Start All Bots</button>
     <button style="background-color: darkred; color: white; font-weight: bold;" onclick="stopAll()">Stop All Bots</button>
     <button style="background-color: darkblue; color: white; font-weight: bold;" onclick="window.open('https://polymarket.com/')"><b>Polymarket</b></button>
+    <br>
+    <button style="background-color: darkblue; color: white; font-weight: bold;" onclick="window.open('https://polymarket.com/portfolio?tab=positions')"><b>Inventory</b></button>
+    <button style="background-color: darkblue; color: white; font-weight: bold;" onclick="window.open('https://polymarket.com/portfolio?tab=Open+orders')"><b>Open Orders</b></button>
+    <button style="background-color: darkblue; color: white; font-weight: bold;" onclick="window.open('https://polymarket.com/rewards')"><b>Rewards</b></button>
   </div>
 
   <!-- Market Search Section with Dropdown Multi-select -->
@@ -426,7 +430,7 @@
             ${removeButtonHtml}
             <h2>Bot #${displayIndex}</h2>
           </div>
-          <p>${question}</p>
+          <p><b>${question}</b></p>
           <p>Order Quantity: <strong id="quantity-${botSlug}">${defaultQuantity}</strong></p>
           <p>Min Order Quantity: <strong id="quantity-${botSlug}">${minShares}</strong></p>
           <div class="status">Status: <span id="status-${botSlug}">Not Running</span></div>
