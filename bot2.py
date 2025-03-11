@@ -31,7 +31,7 @@ async def run_async_bot_bidAndTick(client, market):
         market_id = market["condition_id"]
         market_slug = market["market_slug"]
         market_min_order_size = market["rewards"]["min_size"]
-        market_spread = market["rewards"]["max_spread"]
+        # NOTE: We no longer use a provided market spread; it is computed below
 
         # Initialize the default order quantity.
         order_quantities[market_slug] = market_min_order_size
@@ -52,9 +52,6 @@ async def run_async_bot_bidAndTick(client, market):
             return
 
         market_name = f"{event_text} (Binary Market)"
-
-        # Determine how many ticks to offset below the best bid.
-        TOP_BOOK_TICKS = 2 if market_spread <= 1 else 1
 
         # Create a state dictionary for each market side.
         state = {
@@ -89,7 +86,11 @@ async def run_async_bot_bidAndTick(client, market):
         # Trade listener task (for order fills).
         async def trade_listener():
             async for data in get_trades([market_id]):
-                await event_queue.put({"type": "fill", **data})
+                if isinstance(data, list):
+                    for trade in data:
+                        await event_queue.put({"type": "fill", **trade})
+                elif isinstance(data, dict):
+                    await event_queue.put({"type": "fill", **data})
 
         # Quantity update listener task.
         async def quantity_update_listener():
@@ -110,130 +111,135 @@ async def run_async_bot_bidAndTick(client, market):
             event_data = await event_queue.get()
 
             if event_data["type"] == "best_bid":
-                update_dt = event_data.get("datetime")
+                # Compute the market spread from the No side.
+                best_bid_no = float(event_data["No"]["best_bid"])
+                best_ask_no = float(event_data["No"]["best_ask"])
+                computed_spread = best_ask_no - best_bid_no
+                TOP_BOOK_TICKS = 1 if computed_spread <= 1 else 2
+
+                # Check if any side has a changed best bid (or it's the initial read).
+                update_required = False
                 for side in ["No", "Yes"]:
                     prices = event_data.get(side, {})
-                    new_best_bid = prices.get("best_bid")
-                    if new_best_bid is None:
+                    new_bid_val = prices.get("best_bid")
+                    if new_bid_val is None:
                         continue
-                    new_best_bid = float(new_best_bid)
-                    current_tick = state[side]["current_min_tick_size"]
-                    threshold = current_tick * TOP_BOOK_TICKS
+                    new_bid = float(new_bid_val)
+                    if state[side]["current_best_bid"] is None or new_bid != state[side]["current_best_bid"]:
+                        update_required = True
+                        break
 
-                    if not state[side]["initial_order_placed"]:
-                        state[side]["current_best_bid"] = new_best_bid
-                        order_price = new_best_bid - (TOP_BOOK_TICKS * current_tick)
-                        state[side]["current_order_price"] = order_price
-                        order_qty = order_quantities.get(market_slug, market_min_order_size)
+                if update_required:
+                    if state["No"]["initial_order_placed"] and state["Yes"]["initial_order_placed"]:
                         logging.info(
-                            f"[bold green]({side}) Initial market read:[/bold green] Best bid = [bold cyan]{new_best_bid:.5f}[/bold cyan], "
-                            f"Tick size = [bold cyan]{current_tick:.5f}[/bold cyan], Threshold = [bold cyan]{threshold:.5f}[/bold cyan]",
+                            f"[bold yellow]Best bid change detected on at least one side. Updating orders for both sides.[/bold yellow]",
                             extra={"bot_slug": market_slug},
                         )
-                        logging.info(
-                            f"[bold green]Placing initial order[/bold green] for [bold green]({side})[/bold green] at price [bold cyan]{order_price:.5f}[/bold cyan] for [bold cyan]{order_qty}[/bold cyan] shares. "
-                            f"Total: [bold cyan]{order_qty * order_price:.5f}[/bold cyan]",
-                            extra={"bot_slug": market_slug},
-                        )
-                        try:
-                            create_and_submit_order(
-                                client,
-                                no_token if side == "No" else yes_token,
-                                "BUY",
-                                order_price,
-                                order_qty,
+                    for side in ["No", "Yes"]:
+                        prices = event_data.get(side, {})
+                        new_bid_val = prices.get("best_bid")
+                        if new_bid_val is None:
+                            continue
+                        new_best_bid = float(new_bid_val)
+                        current_tick = state[side]["current_min_tick_size"]
+
+                        if not state[side]["initial_order_placed"]:
+                            state[side]["current_best_bid"] = new_best_bid
+                            new_order_price = new_best_bid - (TOP_BOOK_TICKS * current_tick)
+                            state[side]["current_order_price"] = new_order_price
+                            order_qty = order_quantities.get(market_slug, market_min_order_size)
+                            logging.info(
+                                f"[bold green]({side}) Initial market read: Best bid = [bold cyan]{new_best_bid:.4f}[/bold cyan], Tick size = [bold cyan]{current_tick:.4f}[/bold cyan], Spread = [bold cyan]{computed_spread:.4f}[/bold cyan].[/bold green]",
+                                extra={"bot_slug": market_slug},
                             )
-                        except PolyApiException as e:
-                            if "not enough balance" in str(e).lower():
-                                logging.info(
-                                    f"[bold red]({side}) Market too expensive![/bold red] Cannot place initial order for {market_slug}.",
-                                    extra={"bot_slug": market_slug},
+                            logging.info(
+                                f"[bold green]Placing initial order for ({side}) at price [bold cyan]{new_order_price:.4f}[/bold cyan] for [bold cyan]{order_qty}[/bold cyan] shares. Total: [bold cyan]{order_qty * new_order_price:.4f}[/bold cyan].[/bold green]",
+                                extra={"bot_slug": market_slug},
+                            )
+                            try:
+                                create_and_submit_order(
+                                    client,
+                                    no_token if side == "No" else yes_token,
+                                    "BUY",
+                                    new_order_price,
+                                    order_qty,
                                 )
-                                cancel_market_orders(client, market_id, no_token if side == "No" else yes_token)
-                                market_listener_task.cancel()
-                                trade_listener_task.cancel()
-                                qty_listener_task.cancel()
-                                return
-                            else:
-                                raise
-                        state[side]["initial_order_placed"] = True
-                        state[side]["current_order_quantity"] = order_qty
-                    else:
-                        # Calculate threshold and check if the change is significant.
-                        logging.info(
-                            f"[bold yellow]({side}) Best bid update:[/bold yellow] Old best bid = [bold cyan]{state[side]['current_best_bid']:.5f}[/bold cyan], "
-                            f"New best bid = [bold cyan]{new_best_bid:.5f}[/bold cyan], Threshold = [bold cyan]{threshold:.5f}[/bold cyan]",
-                            extra={"bot_slug": market_slug},
-                        )
-                        if abs(new_best_bid - state[side]["current_best_bid"]) > threshold:
+                            except PolyApiException as e:
+                                if "not enough balance" in str(e).lower():
+                                    logging.info(
+                                        f"[bold red]({side}) Market too expensive![/bold red] Cannot place initial order for {market_slug}.",
+                                        extra={"bot_slug": market_slug},
+                                    )
+                                    cancel_market_orders(client, market_id, no_token if side == "No" else yes_token)
+                                    market_listener_task.cancel()
+                                    trade_listener_task.cancel()
+                                    qty_listener_task.cancel()
+                                    return
+                                else:
+                                    raise
+                            state[side]["initial_order_placed"] = True
+                            state[side]["current_order_quantity"] = order_qty
+                        else:
+                            # Even if one side's best bid hasn't changed, update orders for both.
+                            logging.info(
+                                f"[bold yellow]({side}) Best bid update: Old best bid = [bold cyan]{state[side]['current_best_bid']:.4f}[/bold cyan], New best bid = [bold cyan]{new_best_bid:.4f}[/bold cyan], Spread = [bold cyan]{computed_spread:.4f}[/bold cyan].[/bold yellow]",
+                                extra={"bot_slug": market_slug},
+                            )
                             state[side]["current_best_bid"] = new_best_bid
                             new_order_price = new_best_bid - (TOP_BOOK_TICKS * current_tick)
                             logging.info(
-                                f"[bold yellow]({side}) Order price recalculation:[/bold yellow] Old order price = [bold cyan]{state[side]['current_order_price']:.5f}[/bold cyan], "
-                                f"New order price = [bold cyan]{new_order_price:.5f}[/bold cyan], Threshold = [bold cyan]{threshold:.5f}[/bold cyan]",
+                                f"[bold yellow]({side}) New order price recalculation: Old order price = [bold cyan]{state[side]['current_order_price']:.4f}[/bold cyan], New order price = [bold cyan]{new_order_price:.4f}[/bold cyan].[/bold yellow]",
                                 extra={"bot_slug": market_slug},
                             )
-                            if abs(new_order_price - state[side]["current_order_price"]) > threshold:
-                                order_qty = order_quantities.get(market_slug, market_min_order_size)
-                                current_orders = get_market_active_orders(client, market_id)
+                            order_qty = order_quantities.get(market_slug, market_min_order_size)
+                            current_orders = get_market_active_orders(client, market_id)
+                            logging.info(
+                                f"[bold yellow]({side}) Orders retrieved. Count: [bold cyan]{len(current_orders)}[/bold cyan].[/bold yellow]",
+                                extra={"bot_slug": market_slug},
+                            )
+                            current_buy_order = next(
+                                (
+                                    order
+                                    for order in current_orders
+                                    if order["side"].lower() == "buy"
+                                    and order.get("asset_id") == (no_token if side == "No" else yes_token)
+                                ),
+                                None,
+                            )
+                            if current_buy_order:
                                 logging.info(
-                                    f"[bold yellow]({side}) Orders retrieved.[/bold yellow] Current orders: [bold cyan]{len(current_orders)}[/bold cyan]",
+                                    f"[bold yellow]({side}) Cancelling order {current_buy_order['id']} due to best bid change.[/bold yellow]",
                                     extra={"bot_slug": market_slug},
                                 )
-                                current_buy_order = next(
-                                    (
-                                        order
-                                        for order in current_orders
-                                        if order["side"].lower() == "buy"
-                                        and order["token_id"] == (no_token if side == "No" else yes_token)
-                                    ),
-                                    None,
+                                cancel_order(client, current_buy_order["id"])
+                            logging.info(
+                                f"[bold yellow]({side}) Placing new order at price [bold cyan]{new_order_price:.4f}[/bold cyan] for [bold cyan]{order_qty}[/bold cyan] shares. Total: [bold cyan]{order_qty * new_order_price:.4f}[/bold cyan].[/bold yellow]",
+                                extra={"bot_slug": market_slug},
+                            )
+                            try:
+                                create_and_submit_order(
+                                    client,
+                                    no_token if side == "No" else yes_token,
+                                    "BUY",
+                                    new_order_price,
+                                    order_qty,
                                 )
-                                if current_buy_order:
+                            except PolyApiException as e:
+                                if "not enough balance" in str(e).lower():
                                     logging.info(
-                                        f"[bold yellow]({side}) Cancelling order[/bold yellow] {current_buy_order['id']} due to best bid change.",
+                                        f"[bold red]({side}) Market too expensive![/bold red] Cannot update order on best bid change for {market_slug}.",
                                         extra={"bot_slug": market_slug},
                                     )
-                                    cancel_order(client, current_buy_order["id"])
-                                logging.info(
-                                    f"[bold yellow]({side}) Placing new order[/bold yellow] at price [bold cyan]{new_order_price:.5f}[/bold cyan] for [bold cyan]{order_qty}[/bold cyan] shares. "
-                                    f"Total: [bold cyan]{order_qty * new_order_price:.5f}[/bold cyan]",
-                                    extra={"bot_slug": market_slug},
-                                )
-                                try:
-                                    create_and_submit_order(
-                                        client,
-                                        no_token if side == "No" else yes_token,
-                                        "BUY",
-                                        new_order_price,
-                                        order_qty,
-                                    )
-                                except PolyApiException as e:
-                                    if "not enough balance" in str(e).lower():
-                                        logging.info(
-                                            f"[bold red]({side}) Market too expensive![/bold red] Cannot update order on best bid change for {market_slug}.",
-                                            extra={"bot_slug": market_slug},
-                                        )
-                                        cancel_market_orders(client, market_id, no_token if side == "No" else yes_token)
-                                        market_listener_task.cancel()
-                                        trade_listener_task.cancel()
-                                        qty_listener_task.cancel()
-                                        return
-                                    else:
-                                        raise
-                                state[side]["current_order_price"] = new_order_price
-                                state[side]["current_order_quantity"] = order_qty
-                            else:
-                                logging.info(
-                                    f"({side}) Order price unchanged. Current order price: [bold cyan]{state[side]['current_order_price']:.5f}[/bold cyan]",
-                                    extra={"bot_slug": market_slug},
-                                )
-                        else:
-                            logging.info(
-                                f"[bold yellow]({side}) Best bid change[/bold yellow] (new: [bold cyan]{new_best_bid}[/bold cyan], old: [bold cyan]{state[side]['current_best_bid']:.5f})[/bold cyan]"
-                                f"is below threshold ({threshold:.5f}). No order update.",
-                                extra={"bot_slug": market_slug},
-                            )
+                                    cancel_market_orders(client, market_id, no_token if side == "No" else yes_token)
+                                    market_listener_task.cancel()
+                                    trade_listener_task.cancel()
+                                    qty_listener_task.cancel()
+                                    return
+                                else:
+                                    raise
+                            state[side]["current_order_price"] = new_order_price
+                            state[side]["current_order_quantity"] = order_qty
+                # If no update is required, do nothing (and log nothing).
 
             elif event_data["type"] == "tick_size":
                 new_tick_size = float(event_data["new_tick_size"])
@@ -242,23 +248,21 @@ async def run_async_bot_bidAndTick(client, market):
                     old_tick = state[side]["current_min_tick_size"]
                     if new_tick_size != old_tick:
                         logging.info(
-                            f"[bold yellow]({side}) Tick size change:[/bold yellow] Old tick size = [bold cyan]{old_tick:.5f}[/bold cyan], New tick size = [bold cyan]{new_tick_size:.5f}[/bold cyan]",
+                            f"[bold yellow]({side}) Tick size change:[/bold yellow] Old tick size = [bold cyan]{old_tick:.4f}[/bold cyan], New tick size = [bold cyan]{new_tick_size:.4f}[/bold cyan]",
                             extra={"bot_slug": market_slug},
                         )
                         state[side]["current_min_tick_size"] = new_tick_size
                         if state[side]["current_best_bid"] is not None and state[side]["initial_order_placed"]:
                             new_order_price = state[side]["current_best_bid"] - (TOP_BOOK_TICKS * new_tick_size)
-                            threshold = new_tick_size * TOP_BOOK_TICKS
                             logging.info(
-                                f"[bold yellow]({side}) Tick update:[bold yellow] Old order price = [bold cyan]{state[side]['current_order_price']:.5f}[/bold cyan], "
-                                f"New order price = [bold cyan]{new_order_price:.5f}[/bold cyan], Threshold = [bold cyan]{threshold:.5f}[/bold cyan]",
+                                f"[bold yellow]({side}) Tick update: Old order price = [bold cyan]{state[side]['current_order_price']:.4f}[/bold cyan], New order price = [bold cyan]{new_order_price:.4f}[/bold cyan].[/bold yellow]",
                                 extra={"bot_slug": market_slug},
                             )
-                            if abs(new_order_price - state[side]["current_order_price"]) > threshold:
+                            if new_order_price != state[side]["current_order_price"]:
                                 order_qty = order_quantities.get(market_slug, market_min_order_size)
                                 current_orders = get_market_active_orders(client, market_id)
                                 logging.info(
-                                    f"[bold yellow]({side}) Orders retrieved[/bold yellow] after tick change. Current orders: [bold cyan]{len(current_orders)}[/bold cyan]",
+                                    f"[bold yellow]({side}) Orders retrieved after tick change. Count: [bold cyan]{len(current_orders)}[/bold cyan].[/bold yellow]",
                                     extra={"bot_slug": market_slug},
                                 )
                                 current_buy_order = next(
@@ -266,19 +270,18 @@ async def run_async_bot_bidAndTick(client, market):
                                         order
                                         for order in current_orders
                                         if order["side"].lower() == "buy"
-                                        and order["token_id"] == (no_token if side == "No" else yes_token)
+                                        and order.get("asset_id") == (no_token if side == "No" else yes_token)
                                     ),
                                     None,
                                 )
                                 if current_buy_order:
                                     logging.info(
-                                        f"[bold yellow]({side}) Cancelling order[/bold yellow] {current_buy_order['id']} due to tick size change.",
+                                        f"[bold yellow]({side}) Cancelling order {current_buy_order['id']} due to tick size change.[/bold yellow]",
                                         extra={"bot_slug": market_slug},
                                     )
                                     cancel_order(client, current_buy_order["id"])
                                 logging.info(
-                                    f"[bold yellow]({side}) Placing new order[/bold yellow] at price [bold cyan]{new_order_price:.5f}[/bold cyan] for [bold cyan]{order_qty}[/bold cyan] shares. "
-                                    f"Total: [bold cyan]{order_qty * new_order_price:.5f}[/bold cyan]",
+                                    f"[bold yellow]({side}) Placing new order at price [bold cyan]{new_order_price:.4f}[/bold cyan] for [bold cyan]{order_qty}[/bold cyan] shares. Total: [bold cyan]{order_qty * new_order_price:.4f}[/bold cyan].[/bold yellow]",
                                     extra={"bot_slug": market_slug},
                                 )
                                 try:
@@ -306,13 +309,12 @@ async def run_async_bot_bidAndTick(client, market):
                                 state[side]["current_order_quantity"] = order_qty
                             else:
                                 logging.info(
-                                    f"({side}) Tick size update did not change order price. "
-                                    f"Current order price: [bold cyan]{state[side]['current_order_price']:.5f}[/bold cyan]",
+                                    f"[bold yellow]({side}) Tick size update did not change order price. Current order price remains: [bold cyan]{state[side]['current_order_price']:.4f}[/bold cyan].[/bold yellow]",
                                     extra={"bot_slug": market_slug},
                                 )
                         else:
                             logging.info(
-                                f"({side}) Tick size update but no active order or best bid available.",
+                                f"[bold yellow]({side}) Tick size update but no active order or best bid available.[/bold yellow]",
                                 extra={"bot_slug": market_slug},
                             )
 
@@ -321,7 +323,7 @@ async def run_async_bot_bidAndTick(client, market):
                     f"[bold pink]Order filled for {market_slug} on both sides. Fill size: {event_data.get('size', '?')} shares[/bold pink]",
                     extra={"bot_slug": market_slug},
                 )
-                logging.info(f"Shutting down bot for {market_slug}", extra={"bot_slug": market_slug})
+                logging.info(f"[bold red]Shutting down bot for {market_slug}[/bold red]", extra={"bot_slug": market_slug})
                 cancel_market_orders(client, market_id, no_token)
                 cancel_market_orders(client, market_id, yes_token)
                 market_listener_task.cancel()
@@ -340,15 +342,14 @@ async def run_async_bot_bidAndTick(client, market):
                     continue
 
                 logging.info(
-                    f"[bold yellow]({side}) Order quantity update detected:[/bold yellow] Old quantity = [bold cyan]{state[side]['current_order_quantity']}[/bold cyan], "
-                    f"New quantity = [bold cyan]{updated_qty}[/bold cyan]",
+                    f"[bold yellow]({side}) Order quantity update detected:[/bold yellow] Old quantity = [bold cyan]{state[side]['current_order_quantity']}[/bold cyan], New quantity = [bold cyan]{updated_qty}[/bold cyan]",
                     extra={"bot_slug": market_slug},
                 )
                 current_balance = fetch_balance()
                 if (updated_qty * state[side]["current_order_price"]) > current_balance:
                     max_qty = int(current_balance // state[side]["current_order_price"])
                     logging.info(
-                        f"[bold red]({side}) Quantity update failed![/bold red] Updated order cost ([bold cyan]{updated_qty * state[side]['current_order_price']:.5f}[/bold cyan]) exceeds balance ([bold cyan]{current_balance}[/bold cyan]). "
+                        f"[bold red]({side}) Quantity update failed![/bold red] Updated order cost ([bold cyan]{updated_qty * state[side]['current_order_price']:.4f}[/bold cyan]) exceeds balance ([bold cyan]{current_balance}[/bold cyan]). "
                         f"Maximum allowable quantity is [bold cyan]{max_qty}[/bold cyan]. Keeping previous order.",
                         extra={"bot_slug": market_slug},
                     )
@@ -362,19 +363,18 @@ async def run_async_bot_bidAndTick(client, market):
                         order
                         for order in current_orders
                         if order["side"].lower() == "buy"
-                        and order["token_id"] == (no_token if side == "No" else yes_token)
+                        and order.get("asset_id") == (no_token if side == "No" else yes_token)
                     ),
                     None,
                 )
                 if current_buy_order:
                     logging.info(
-                        f"[bold yellow]({side}) Cancelling order[/bold yellow] {current_buy_order['id']} due to quantity update.",
+                        f"[bold yellow]({side}) Cancelling order {current_buy_order['id']} due to quantity update.[/bold yellow]",
                         extra={"bot_slug": market_slug},
                     )
                     cancel_order(client, current_buy_order["id"])
                 logging.info(
-                    f"[bold yellow]({side}) Placing updated order[/bold yellow] at price [bold cyan]{state[side]['current_order_price']:.5f}[/bold cyan] for [bold cyan]{updated_qty}[/bold cyan] shares. "
-                    f"Total: [bold cyan]{updated_qty * state[side]['current_order_price']:.5f}[/bold cyan]",
+                    f"[bold yellow]({side}) Placing updated order at price [bold cyan]{state[side]['current_order_price']:.4f}[/bold cyan] for [bold cyan]{updated_qty}[/bold cyan] shares. Total: [bold cyan]{updated_qty * state[side]['current_order_price']:.4f}[/bold cyan].[/bold yellow]",
                     extra={"bot_slug": market_slug},
                 )
                 try:
@@ -388,7 +388,7 @@ async def run_async_bot_bidAndTick(client, market):
                 except PolyApiException as e:
                     if "not enough balance / allowance" in str(e).lower():
                         logging.info(
-                            f"[bold red]({side}) Allowance problem![bold red] Cannot update order quantity for {market_slug} on ({side}) due to insufficient allowance.",
+                            f"[bold red]({side}) Allowance problem![/bold red] Cannot update order quantity for {market_slug} on ({side}) due to insufficient allowance.",
                             extra={"bot_slug": market_slug},
                         )
                         cancel_market_orders(client, market_id, no_token if side == "No" else yes_token)
