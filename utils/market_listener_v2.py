@@ -3,7 +3,6 @@ import asyncio
 import json
 from datetime import datetime
 import websockets
-import market, clob_client, order
 
 # Set your Polymarket websocket URL here
 WEBSOCKET_URL = "wss://ws-subscriptions-clob.polymarket.com/ws/market"
@@ -171,11 +170,6 @@ async def listen_binary_market(no_asset_id, yes_asset_id):
             yield result
 
 if __name__ == "__main__":
-    bot = clob_client.create_client()
-    order.cancel_all_orders(bot)
-
-    mkt = market.get_single_byName(bot, "Will Ontario resume electricity surcharge to the U.S. by next Friday?")
-
     # Replace these with your actual asset IDs for the No and Yes outcomes.
     no_asset_id = "72847832711967062303071270284482950561188218126373806294341642866826184782998"
     yes_asset_id = "23994765257735901643289866175445839985500568899141362167867883906244447758525"
