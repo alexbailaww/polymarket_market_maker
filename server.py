@@ -34,10 +34,7 @@ root_logger.addHandler(memory_handler)
 polyBot = create_client()
 cancel_all_orders(polyBot)
 botBalance = fetch_balance()
-botAllowance = fetch_allowance()
 logging.info(f'Balance: {botBalance}', extra={"bot_slug": "global"})
-logging.info(f'Allowance: {botAllowance}\n', extra={"bot_slug": "global"})
-
 available_markets = get_sampling_all(polyBot)
 logging.info("[bold blue]Markets retrieved.[/bold blue]", extra={"bot_slug": "global"})
 

@@ -253,8 +253,9 @@
     <h1>3b3c Bot Farm</h1>
   </header>
   <div id="balance-container" style="text-align: center; margin-bottom: 20px;">
-    <span style="font-size: 1.2em;">Balance (USDC.E): </span>
+    <span style="font-size: 1.2em;">Balance: </span>
     <span id="balance-display" style="font-size: 1.2em; font-weight: bold;">Loading...</span>
+    <span style="font-size: 1.2em;">$</span>
   </div>  
 
   <div style="display: flex; flex-direction: column; align-items: center; margin: 20px 0;">
@@ -431,7 +432,6 @@
             <h2>Bot #${displayIndex}</h2>
           </div>
           <p><b>${question}</b></p>
-          <p>Order Quantity: <strong id="quantity-${botSlug}">${defaultQuantity}</strong></p>
           <p>Min Order Quantity: <strong id="quantity-${botSlug}">${minShares}</strong></p>
           <div class="status">Status: <span id="status-${botSlug}">Not Running</span></div>
           <div class="buttons">
@@ -781,12 +781,14 @@
         const response = await fetch("http://localhost:8000/balance");
         const data = await response.json();
         const balance = data.balance;
-        document.getElementById("balance-display").textContent = balance;
+        // Convert balance to a number and format to 3 decimals
+        const formattedBalance = Number(balance).toFixed(3);
+        document.getElementById("balance-display").textContent = formattedBalance;
       } catch (error) {
         console.error("Error fetching balance:", error);
       }
     }
-    setInterval(updateBalance, 500); 
+    setInterval(updateBalance, 500);
 
   </script>
 </body>

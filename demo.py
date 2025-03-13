@@ -8,15 +8,15 @@ from py_clob_client.order_builder.constants import BUY, SELL
 # allowance.set_allowances()
 # clob_client.generate_api_keys()
 print(balance.fetch_balance())
-print(allowance.fetch_allowance())
+# print(allowance.fetch_allowance())
 
 bot = clob_client.create_client()
-order.cancel_all_orders(bot)
+# order.cancel_all_orders(bot)
 
 mkt = market.get_single_byName(bot, "Will Ontario resume electricity surcharge to the U.S. by next Friday?")
 print(json.dumps(mkt, indent = 4))
 # order.create_and_submit_order(bot, mkt['tokens'][0]['token_id'], BUY, 0.80, 5)
-order.create_and_submit_order(bot, mkt['tokens'][1]['token_id'], BUY, 0.15, 5)
+# order.create_and_submit_order(bot, mkt['tokens'][1]['token_id'], BUY, 0.15, 5)
 
 # print(f'Sampling Markets: {len(sampling_markets)}\nActive Markets: {activeMarkets}\nClosed Markets: {closedMarkets}\n')
 

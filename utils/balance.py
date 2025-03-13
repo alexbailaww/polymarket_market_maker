@@ -14,6 +14,11 @@ def fetch_balance():
 
     # Your wallet address
     address = os.getenv('PBK')
+    if not address:
+        raise ValueError("Environment variable PBK is not set.")
+    
+    # Convert to checksum address
+    address = web3.to_checksum_address(address)
 
     # USDC contract on Polygon
     usdc_address = '0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174'
@@ -43,3 +48,6 @@ def fetch_balance():
     balance_raw = usdc_contract.functions.balanceOf(address).call()
     balance = balance_raw / 10**6  # USDC has 6 decimals
     return balance
+
+if __name__ == "__main__":
+    print(fetch_balance())
