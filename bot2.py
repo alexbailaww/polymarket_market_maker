@@ -110,6 +110,7 @@ async def run_async_bot_bidAndTick(client, market):
             event_data = await event_queue.get()
 
             if event_data["type"] == "best_bid":
+                print("BEST BID")
                 # --- Debounce high-frequency best bid events ---
                 await asyncio.sleep(0.1)
 
@@ -249,6 +250,7 @@ async def run_async_bot_bidAndTick(client, market):
                                 state[side]["current_order_quantity"] = order_qty
 
             elif event_data["type"] == "tick_size":
+                print("TICK SIZE")
                 new_tick_size = float(event_data["new_tick_size"])
                 update_dt = event_data.get("datetime")
                 for side in ["No", "Yes"]:
@@ -334,6 +336,7 @@ async def run_async_bot_bidAndTick(client, market):
                                 )
 
             elif event_data["type"] == "fill":
+                print("FILL")
                 logging.info(
                     f"[bold pink]Order matched (not confirmed yet) for {market_slug}.[/bold pink]",
                     extra={"bot_slug": market_slug},
@@ -347,6 +350,7 @@ async def run_async_bot_bidAndTick(client, market):
                 return
 
             elif event_data["type"] == "quantity_update":
+                print("QTY UPDATE")
                 side = event_data.get("side")
                 updated_qty = event_data.get("updated_qty")
                 if updated_qty is None or side not in ["No", "Yes"]:
