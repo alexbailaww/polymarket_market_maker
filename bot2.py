@@ -88,7 +88,7 @@ async def run_async_bot_bidAndTick(client, market):
 
         # Trade listener task (for order fills).
         async def trade_listener():
-            async for data in listen_user_trades([market_id]):
+            async for data in listen_user_trades(market_id):
                 await event_queue.put({"type": "fill", **data})
 
         # Quantity update listener task.
