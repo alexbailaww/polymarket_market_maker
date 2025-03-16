@@ -43,7 +43,7 @@ async def listen_user_trades(condition_id):
                     yield data
 
 async def main():
-    condition_id = "0x548c9debd0d3f4c26319629d79fdfb36e4211376603411f5c80cc8f0531fcdc3"
+    condition_id = "0x0d455730a68140b78530bb150ba956f2c4ff79a8b718439d9734b96d07abca14"
 
     async for event in listen_user_trades(condition_id):
         print(json.dumps(event, indent = 4))
