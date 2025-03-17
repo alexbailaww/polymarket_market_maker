@@ -42,9 +42,9 @@ async def run_async_bot_bidAndTick(client, market):
         no_token = None
         yes_token = None
         for token in market["tokens"]:
-            if token["outcome"].lower() == "no":
+            if token["outcome"].lower() in ["no", 'down', 'up']:
                 no_token = token["token_id"]
-            elif token["outcome"].lower() == "yes":
+            elif token["outcome"].lower() in ["yes", 'up', 'down']:
                 yes_token = token["token_id"]
 
         if not no_token or not yes_token:
@@ -92,6 +92,7 @@ async def run_async_bot_bidAndTick(client, market):
         async def trade_listener():
             async for data in listen_user_trades(market_id):
                 fill_triggered.set()  # Immediately signal that a fill occurred.
+                logging.info(f"[bold magenta]Fill detected! Initiating shutdown for {market_slug}.[/bold magenta]", extra={"bot_slug": market_slug})
                 await event_queue.put({"type": "fill", **data})
 
         # Quantity update listener task.
@@ -110,7 +111,6 @@ async def run_async_bot_bidAndTick(client, market):
 
         async def fill_monitor():
             await fill_triggered.wait()
-            logging.info(f"[bold magenta]Fill detected! Initiating shutdown for {market_slug}.[/bold magenta]", extra={"bot_slug": market_slug})
             await asyncio.to_thread(cancel_market_orders, client, market_id, no_token)
             await asyncio.to_thread(cancel_market_orders, client, market_id, yes_token)
             market_listener_task.cancel()
@@ -353,20 +353,12 @@ async def run_async_bot_bidAndTick(client, market):
                                     extra={"bot_slug": market_slug},
                                 )
 
-            elif event_data["type"] == "fill":
-                break  
-                print("FILL")
-                logging.info(
-                    f"[bold pink]Order matched (not confirmed yet) for {market_slug}.[/bold pink]",
-                    extra={"bot_slug": market_slug},
-                )
+            elif event_data["type"] == "fill":  
                 logging.info(f"[bold red]Shutting down bot for {market_slug}[/bold red]", extra={"bot_slug": market_slug})
+                fill_triggered.set()
                 await asyncio.to_thread(cancel_market_orders, client, market_id, no_token)
                 await asyncio.to_thread(cancel_market_orders, client, market_id, yes_token)
-                market_listener_task.cancel()
-                trade_listener_task.cancel()
-                qty_listener_task.cancel()
-                return
+                break
 
             elif event_data["type"] == "quantity_update":
                 print("QTY UPDATE")
@@ -442,7 +434,11 @@ async def run_async_bot_bidAndTick(client, market):
                         else:
                             raise
                     state[side]["current_order_quantity"] = updated_qty
+        market_listener_task.cancel()
+        trade_listener_task.cancel()
+        qty_listener_task.cancel()
         fill_monitor_task.cancel()
+        
 
     except asyncio.CancelledError:
         logging.info(f"[bold red]Bot for {market['market_slug']} cancelled.[/bold red]", extra={"bot_slug": market["market_slug"]})

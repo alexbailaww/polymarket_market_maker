@@ -252,11 +252,11 @@
     <img src="https://images.crunchbase.com/image/upload/c_pad,f_auto,q_auto:eco,dpr_1/radxv99bd8jwiuqwxt95" alt="PolyMarket Logo">
     <h1>3b3c Bot Farm</h1>
   </header>
-  <div id="balance-container" style="text-align: center; margin-bottom: 20px;">
+  <!-- <div id="balance-container" style="text-align: center; margin-bottom: 20px;">
     <span style="font-size: 1.2em;">Balance: </span>
     <span id="balance-display" style="font-size: 1.2em; font-weight: bold;">Loading...</span>
     <span style="font-size: 1.2em;">$</span>
-  </div>  
+  </div>   -->
 
   <div style="display: flex; flex-direction: column; align-items: center; margin: 20px 0;">
     <label for="api-usage-progress" style="font-weight: 500; color: #ccc; margin-bottom: 8px; font-size: 1rem;">
@@ -284,7 +284,7 @@
   
 
   <div id="global-controls">
-    <button style="background-color: darkgreen; color: white; font-weight: bold;" onclick="startAll()">Start All Bots</button>
+    <button style="background-color: darkgreen; color: white; font-weight: bold;" onclick="startAll()">Start All Bots (!defectuous!)</button>
     <button style="background-color: darkred; color: white; font-weight: bold;" onclick="stopAll()">Stop All Bots</button>
     <button style="background-color: darkblue; color: white; font-weight: bold;" onclick="window.open('https://polymarket.com/')"><b>Polymarket</b></button>
     <br>
@@ -681,7 +681,7 @@
       }
     }
     
-    setInterval(checkTasks, 2000);
+    setInterval(checkTasks, 5000);
     
     async function loadMarketList() {
       try {
@@ -788,7 +788,7 @@
         console.error("Error fetching balance:", error);
       }
     }
-    setInterval(updateBalance, 500);
+    // setInterval(updateBalance, 500);
 
   </script>
 </body>
