@@ -151,6 +151,41 @@
       grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 20px;
     }
+    input[type=number]::-webkit-inner-spin-button,
+    input[type=number]::-webkit-outer-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    input[type=number] {
+      -moz-appearance: textfield;
+    }
+    
+    /* Minimalist style for the Book Aways input */
+    .bot input.book-away {
+      width: 50px;
+      padding: 4px;
+      border: 1px solid #555;
+      border-radius: 3px;
+      background: none;
+      color: inherit;
+      font-size: 0.9em;
+      text-align: center;
+    }
+    
+    /* Style for the custom arrow buttons */
+    .bot button.arrow {
+      background: none;
+      border: 1px solid #555;
+      border-radius: 3px;
+      padding: 4px 6px;
+      color: inherit;
+      font-size: 0.9em;
+      cursor: pointer;
+      margin: 0 3px;
+    }
+    .bot button.arrow:hover {
+      background: #333;
+    }
     .bot {
       background-color: #1e1e1e;
       border: 1px solid #444;
@@ -324,6 +359,7 @@
     const selectedMarkets = []; // Array to store selected market objects
     const wsConnections = {};
     const slugIndexMap = {};
+    let bookAwayValues = {};
     let activeMarketSlugs = []; // List of active bot market slugs
 
     // Persist selected markets to localStorage.
@@ -434,6 +470,12 @@
           <p><b>${question}</b></p>
           <p>Min Order Quantity: <strong id="quantity-${botSlug}">${minShares}</strong></p>
           <div class="status">Status: <span id="status-${botSlug}">Not Running</span></div>
+          <p style="margin: 10px 0; font-size: 0.9em;">
+            <label for="bookAway-${botSlug}" style="margin-right: 5px;">Book Aways:</label>
+            <button class="arrow" onclick="decrementBookAway('${botSlug}')">&#8722;</button>
+            <input type="number" id="bookAway-${botSlug}" class="book-away" value="${bookAwayValues[botSlug] || 1}" min="1" oninput="updateBookAwayValue('${botSlug}', this.value)">
+            <button class="arrow" onclick="incrementBookAway('${botSlug}')">&#43;</button>
+          </p>
           <div class="buttons">
             <button style="background-color: darkgreen; color: white; font-weight: bold;" onclick="startBot('${botSlug}')">Start Bot</button>
             <button style="background-color: darkred; color: white; font-weight: bold;" onclick="stopBot('${botSlug}')">Stop Bot</button>
@@ -512,6 +554,29 @@
       saveSelectedMarkets();
     }
 
+    function incrementBookAway(botSlug) {
+      const input = document.getElementById(`bookAway-${botSlug}`);
+      let currentValue = parseInt(input.value, 10) || 1;
+      let newValue = currentValue + 1;
+      input.value = newValue;
+      bookAwayValues[botSlug] = newValue;
+    }
+
+    function decrementBookAway(botSlug) {
+      const input = document.getElementById(`bookAway-${botSlug}`);
+      let currentValue = parseInt(input.value, 10) || 1;
+      let minValue = parseInt(input.min, 10) || 1;
+      if (currentValue > minValue) {
+        let newValue = currentValue - 1;
+        input.value = newValue;
+        bookAwayValues[botSlug] = newValue;
+      }
+    }
+
+    function updateBookAwayValue(botSlug, value) {
+      bookAwayValues[botSlug] = value;
+    }
+
     // Helper function to connect a WebSocket for a given bot.
     function connectWebSocket(botSlug) {
       const ws = new WebSocket(`ws://localhost:8000/ws/logs/${botSlug}`);
@@ -548,7 +613,9 @@
     }
 
     function startBot(botSlug) {
-      callAPI(`http://localhost:8000/start_bot/${botSlug}`);
+      const bookAwayInput = document.getElementById(`bookAway-${botSlug}`);
+      const bookAway = bookAwayInput ? bookAwayInput.value : 1;
+      callAPI(`http://localhost:8000/start_bot/${botSlug}?bookAway=${bookAway}`);
     }
     
     function stopBot(botSlug) {
