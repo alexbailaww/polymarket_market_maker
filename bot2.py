@@ -119,6 +119,12 @@ async def run_async_bot_bidAndTick(client, market):
         
         fill_monitor_task = asyncio.create_task(fill_monitor())
 
+        # Initialize threshold variables before entering the main loop.
+        BEST_BID_THRESHOLD = 3  # Maximum allowed best bid events per second.
+        COOLDOWN_PERIOD = 10      # Cooldown period in seconds when threshold is exceeded.
+        last_reset_time = time.time()
+        event_count = 0
+
         # Main event loop.
         while True:
 
@@ -131,6 +137,25 @@ async def run_async_bot_bidAndTick(client, market):
                 print("BEST BID")
                 # --- Debounce high-frequency best bid events ---
                 await asyncio.sleep(0.1)
+
+                # Count best bid events in the current 1-second window.
+                now = time.time()
+                if now - last_reset_time > 1:
+                    event_count = 0
+                    last_reset_time = now
+                event_count += 1
+
+                # If we exceed the threshold, cancel all orders and pause.
+                if event_count > BEST_BID_THRESHOLD:
+                    logging.info(
+                        f"[bold red]Market too crazy![/bold red] [bold yellow]{event_count}[/bold yellow] bid changes / second detected ([bold yellow]max {BEST_BID_THRESHOLD}[/bold yellow]). Cancelling orders and [bold yellow]waiting {COOLDOWN_PERIOD} seconds for market stabilization...[/bold yellow]",
+                        extra={"bot_slug": market_slug},
+                    )
+                    await asyncio.to_thread(cancel_market_orders, client, market_id, no_token)
+                    await asyncio.to_thread(cancel_market_orders, client, market_id, yes_token)
+                    # Pause for the cooldown period.
+                    await asyncio.sleep(COOLDOWN_PERIOD)
+                    continue
 
                 # Compute the market spread from the No side.
                 best_bid_no = float(event_data["No"]["best_bid"])
