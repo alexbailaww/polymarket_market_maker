@@ -24,8 +24,9 @@ from py_clob_client.exceptions import PolyApiException
 
 logging.basicConfig(level=logging.INFO, format="%(message)s", handlers=[RichHandler()])
 
-async def run_async_bot_bidAndTick(client, market):
+async def run_async_bot_bidAndTick(client, market, bookAway):
     try:
+        TOP_BOOK_TICKS = bookAway
         last_invalid_quantity = None
         event_text = market["question"]
         market_id = market["condition_id"]
@@ -161,7 +162,7 @@ async def run_async_bot_bidAndTick(client, market):
                 best_bid_no = float(event_data["No"]["best_bid"])
                 best_ask_no = float(event_data["No"]["best_ask"])
                 computed_spread = best_ask_no - best_bid_no
-                TOP_BOOK_TICKS = 1 if computed_spread <= 1 else 2
+                # TOP_BOOK_TICKS = 1 if computed_spread <= 1 else 2
 
                 # Check if any side has a changed best bid (or it's the initial read).
                 update_required = False

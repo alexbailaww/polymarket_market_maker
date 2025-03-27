@@ -13,25 +13,25 @@ class BotManager:
         self.markets = markets 
         self.tasks = {}         
 
-    async def start_bot(self, market):
-        """Starts a bot for a specific market and automatically restarts it on failure."""
+    async def start_bot(self, market, bookAway: int):
         market_slug = market['market_slug']
         try:
             while True:
                 try:
-                    await run_async_bot_bidAndTick(self.client, market)
+                    await run_async_bot_bidAndTick(self.client, market, bookAway)
                 except asyncio.CancelledError:
                     break
                 except Exception as e:
+                    # Optionally log the exception
+                    logging.error(f"Error in bot {market_slug}: {e}", extra={"bot_slug": market_slug})
                     break
                 else:
-                    # If the bot function exits normally, break the loop.
                     break
         finally:
-            # Remove the task from the manager when the bot stops.
             if market_slug in self.tasks:
                 self.tasks.pop(market_slug)
-            logging.info(f"Bot for market [bold red]{market_slug}[/bold red] has stopped.", extra={"bot_slug": market_slug})
+            logging.info(f"Bot for market {market_slug} has stopped.", extra={"bot_slug": market_slug})
+
 
     def start_all(self):
         """Starts all bots and stores their tasks."""

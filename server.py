@@ -64,7 +64,7 @@ async def read_index():
     return FileResponse("frontend/index.html")
 
 @app.post("/start_bot/{market_slug}")
-async def start_bot(market_slug: str):
+async def start_bot(market_slug: str, bookAway: float = 1):
     market = None
     for m in manager.markets:
         if m['market_slug'] == market_slug:
@@ -72,9 +72,9 @@ async def start_bot(market_slug: str):
             break
     if market is None:
         raise HTTPException(status_code=404, detail="Market not found")
-    task = asyncio.create_task(manager.start_bot(market))
+    task = asyncio.create_task(manager.start_bot(market, bookAway))
     manager.tasks[market_slug] = task
-    return {"status": f"Bot {market_slug} started."}
+    return {"status": f"Bot {market_slug} started with bookAway = {bookAway}."}
 
 @app.post("/stop_bot/{market_slug}")
 async def stop_bot(market_slug: str):
