@@ -13,7 +13,6 @@ from utils.order import (
     cancel_market_orders,
 )
 from utils.prices_and_books import get_market_price
-# Use the new binary listener – note that it yields combined events for both outcomes
 from utils.market_listener_v2 import listen_binary_market
 from utils.user_listener import listen_user_trades
 from utils.balance import fetch_balance
@@ -32,20 +31,19 @@ async def run_async_bot_bidAndTick(client, market, bookAway):
         market_id = market["condition_id"]
         market_slug = market["market_slug"]
         market_min_order_size = market["rewards"]["min_size"]
-        # NOTE: We no longer use a provided market spread; it is computed below
 
         # Initialize the default order quantity.
         order_quantities[market_slug] = market_min_order_size
 
         logging.info(f"[bold green]Bot started[/bold green] for {market_slug}.", extra={"bot_slug": market_slug})
 
-        # Determine the token IDs for both outcomes from market['tokens'].
+        # Determine the token IDs for both outcomes.
         no_token = None
         yes_token = None
         for token in market["tokens"]:
-            if token["outcome"].lower() in ["no", 'down', 'up']:
+            if token["outcome"].lower() in ["no", "down", "up"]:
                 no_token = token["token_id"]
-            elif token["outcome"].lower() in ["yes", 'up', 'down']:
+            elif token["outcome"].lower() in ["yes", "up", "down"]:
                 yes_token = token["token_id"]
 
         if not no_token or not yes_token:
@@ -55,7 +53,6 @@ async def run_async_bot_bidAndTick(client, market, bookAway):
         market_name = f"{event_text} (Binary Market)"
 
         # Create a state dictionary for each market side.
-        # --> Added an asyncio.Lock for each side.
         state = {
             "No": {
                 "lock": asyncio.Lock(),
@@ -80,23 +77,19 @@ async def run_async_bot_bidAndTick(client, market, bookAway):
 
         fill_triggered = asyncio.Event()
 
-        # Market listener task – uses the new binary listener.
         async def market_listener():
             async for data in listen_binary_market(no_token, yes_token):
-                # Distinguish between tick size events and order book updates.
                 if "old_tick_size" in data:
                     await event_queue.put({"type": "tick_size", **data})
                 else:
                     await event_queue.put({"type": "best_bid", **data})
 
-        # Trade listener.
         async def trade_listener():
             async for data in listen_user_trades(market_id):
-                fill_triggered.set()  # Immediately signal that a fill occurred.
+                fill_triggered.set()  # Signal a fill.
                 logging.info(f"[bold magenta]Fill detected! Initiating shutdown for {market_slug}.[/bold magenta]", extra={"bot_slug": market_slug})
                 await event_queue.put({"type": "fill", **data})
 
-        # Quantity update listener task.
         async def quantity_update_listener():
             while True:
                 await asyncio.sleep(0.5)
@@ -105,7 +98,6 @@ async def run_async_bot_bidAndTick(client, market, bookAway):
                     if state[side]["initial_order_placed"] and updated_qty != state[side]["current_order_quantity"]:
                         await event_queue.put({"type": "quantity_update", "side": side, "updated_qty": updated_qty})
 
-        # Create listener tasks.
         market_listener_task = asyncio.create_task(market_listener())
         trade_listener_task = asyncio.create_task(trade_listener())
         qty_listener_task = asyncio.create_task(quantity_update_listener())
@@ -120,15 +112,58 @@ async def run_async_bot_bidAndTick(client, market, bookAway):
         
         fill_monitor_task = asyncio.create_task(fill_monitor())
 
-        # Initialize threshold variables before entering the main loop.
-        BEST_BID_THRESHOLD = 3  # Maximum allowed best bid events per second.
-        COOLDOWN_PERIOD = 10      # Cooldown period in seconds when threshold is exceeded.
+        # --- New: Periodic health check coroutine ---
+        async def periodic_order_check():
+            """
+            Every minute, fetch active orders. Only if there are 3 or more active orders in total,
+            check that each side has exactly one order with the expected price and cancel those that don't.
+            """
+            while True:
+                await asyncio.sleep(60)
+                logging.info("[bold blue]Periodic order check started.[/bold blue]", extra={"bot_slug": market_slug})
+                try:
+                    active_orders = await asyncio.to_thread(get_market_active_orders, client, market_id)
+                except Exception as e:
+                    logging.error(f"Failed to fetch active orders: {e}", extra={"bot_slug": market_slug})
+                    continue
+
+                orders_no = [
+                    order for order in active_orders
+                    if order["side"].lower() == "buy" and order.get("asset_id") == no_token
+                ]
+                orders_yes = [
+                    order for order in active_orders
+                    if order["side"].lower() == "buy" and order.get("asset_id") == yes_token
+                ]
+                total_orders = len(orders_no) + len(orders_yes)
+
+                # Only run the deeper health check if 3 or more orders are active.
+                if total_orders < 3:
+                    logging.info("[bold blue]Total order count less than 3, health check not required.[/bold blue]", extra={"bot_slug": market_slug})
+                    continue
+
+                for side, orders, token in [("No", orders_no, no_token), ("Yes", orders_yes, yes_token)]:
+                    expected_price = state[side]["current_order_price"]
+                    if len(orders) != 1:
+                        logging.info(f"[bold blue]({side}) Expected 1 order, found {len(orders)}. Checking prices...[/bold blue]", extra={"bot_slug": market_slug})
+                    for order in orders:
+                        if float(order["price"]) != expected_price:
+                            logging.info(
+                                f"[bold red]({side}) Cancelling order id {order['id']} with price {order['price']:.4f} (expected {expected_price:.4f}).[/bold red]",
+                                extra={"bot_slug": market_slug}
+                            )
+                            await asyncio.to_thread(cancel_order, client, order["id"])
+                logging.info("[bold blue]Periodic order check complete.[/bold blue]", extra={"bot_slug": market_slug})
+        
+        periodic_check_task = asyncio.create_task(periodic_order_check())
+        # --- End of health check integration ---
+
+        BEST_BID_THRESHOLD = 3  # Max allowed best bid events per second.
+        COOLDOWN_PERIOD = 10      # Cooldown in seconds when threshold is exceeded.
         last_reset_time = time.time()
         event_count = 0
 
-        # Main event loop.
         while True:
-
             if fill_triggered.is_set():
                 break
 
@@ -136,35 +171,27 @@ async def run_async_bot_bidAndTick(client, market, bookAway):
 
             if event_data["type"] == "best_bid":
                 print("BEST BID")
-                # --- Debounce high-frequency best bid events ---
                 await asyncio.sleep(0.1)
-
-                # Count best bid events in the current 1-second window.
                 now = time.time()
                 if now - last_reset_time > 1:
                     event_count = 0
                     last_reset_time = now
                 event_count += 1
 
-                # If we exceed the threshold, cancel all orders and pause.
                 if event_count > BEST_BID_THRESHOLD:
                     logging.info(
-                        f"[bold red]Market too crazy![/bold red] [bold yellow]{event_count}[/bold yellow] bid changes / second detected ([bold yellow]max {BEST_BID_THRESHOLD}[/bold yellow]). Cancelling orders and [bold yellow]waiting {COOLDOWN_PERIOD} seconds for market stabilization...[/bold yellow]",
+                        f"[bold red]Market too crazy![/bold red] [bold yellow]{event_count}[/bold yellow] bid changes / second detected ([bold yellow]max {BEST_BID_THRESHOLD}[/bold yellow]). Cancelling orders and [bold red]shutting down bot.[/bold red]",
                         extra={"bot_slug": market_slug},
                     )
                     await asyncio.to_thread(cancel_market_orders, client, market_id, no_token)
                     await asyncio.to_thread(cancel_market_orders, client, market_id, yes_token)
-                    # Pause for the cooldown period.
                     await asyncio.sleep(COOLDOWN_PERIOD)
-                    continue
+                    break
 
-                # Compute the market spread from the No side.
                 best_bid_no = float(event_data["No"]["best_bid"])
                 best_ask_no = float(event_data["No"]["best_ask"])
                 computed_spread = best_ask_no - best_bid_no
-                # TOP_BOOK_TICKS = 1 if computed_spread <= 1 else 2
 
-                # Check if any side has a changed best bid (or it's the initial read).
                 update_required = False
                 for side in ["No", "Yes"]:
                     prices = event_data.get(side, {})
@@ -185,7 +212,6 @@ async def run_async_bot_bidAndTick(client, market, bookAway):
                         new_best_bid = float(new_bid_val)
                         current_tick = state[side]["current_min_tick_size"]
 
-                        # Process within a lock for this side.
                         async with state[side]["lock"]:
                             if not state[side]["initial_order_placed"]:
                                 state[side]["current_best_bid"] = new_best_bid
@@ -230,10 +256,8 @@ async def run_async_bot_bidAndTick(client, market, bookAway):
                                 state[side]["initial_order_placed"] = True
                                 state[side]["current_order_quantity"] = order_qty
                             else:
-                                # Only update if the best bid has changed.
                                 if state[side]['current_best_bid'] == new_best_bid:
                                     continue
-                                # Retrieve active orders and cancel the existing one.
                                 current_orders = await asyncio.to_thread(get_market_active_orders, client, market_id)
                                 current_buy_order = next(
                                     (
@@ -246,7 +270,6 @@ async def run_async_bot_bidAndTick(client, market, bookAway):
                                 )
                                 if current_buy_order:
                                     await asyncio.to_thread(cancel_order, client, current_buy_order["id"])
-                                    # Wait briefly to allow cancellation to process.
                                     await asyncio.sleep(0.1)
                                 logging.info(
                                     f"[bold yellow]({side}) Best bid update: Old = [bold cyan]{state[side]['current_best_bid']:.4f}[/bold cyan], New = [bold cyan]{new_best_bid:.4f}[/bold cyan], Spread = [bold cyan]{computed_spread:.4f}[/bold cyan], TBT = [bold cyan]{TOP_BOOK_TICKS}[/bold cyan]. Order was cancelled due to change.[/bold yellow]",
@@ -402,17 +425,6 @@ async def run_async_bot_bidAndTick(client, market, bookAway):
                         f"[bold dark_orange3]({side}) Order quantity update detected:[/bold dark_orange3] Old quantity = [bold cyan]{state[side]['current_order_quantity']}[/bold cyan], New quantity = [bold cyan]{updated_qty}[/bold cyan]",
                         extra={"bot_slug": market_slug},
                     )
-                    # current_balance = fetch_balance()
-                    # if (updated_qty * state[side]["current_order_price"]) > current_balance:
-                    #     max_qty = int(current_balance // state[side]["current_order_price"])
-                    #     logging.info(
-                    #         f"[bold red]({side}) Quantity update failed![/bold red] Updated order cost ([bold cyan]{updated_qty * state[side]['current_order_price']:.4f}[/bold cyan]) exceeds balance ([bold cyan]{current_balance}[/bold cyan]). "
-                    #         f"Maximum allowable quantity is [bold cyan]{max_qty}[/bold cyan]. Keeping previous order.",
-                    #         extra={"bot_slug": market_slug},
-                    #     )
-                    #     last_invalid_quantity = updated_qty
-                    #     continue
-
                     last_invalid_quantity = None
                     current_orders = await asyncio.to_thread(get_market_active_orders, client, market_id)
                     current_buy_order = next(
@@ -432,7 +444,7 @@ async def run_async_bot_bidAndTick(client, market, bookAway):
                         await asyncio.to_thread(cancel_order, client, current_buy_order["id"])
                         await asyncio.sleep(0.1)
                     logging.info(
-                        f"[bold dark_orange3]({side}) Placing updated order at price [bold cyan]{state[side]['current_order_price']:.4f}[/bold cyan] for [bold cyan]{updated_qty}[/bold cyan] shares. Total: [bold cyan]{updated_qty * state[side]['current_order_price']:.4f}[/bold cyan].[/bold dark_orange3]",
+                        f"[bold dark_orange3]({side}) Placing updated order at price [bold cyan]{state[side]['current_order_price']:.4f}[/bold cyan] for [bold cyan]{updated_qty}[/bold cyan] shares. Total: [bold cyan]{updated_qty * state[side]['current_order_price']:.4f}[/bold cyan]",
                         extra={"bot_slug": market_slug},
                     )
                     try:
@@ -460,12 +472,14 @@ async def run_async_bot_bidAndTick(client, market, bookAway):
                         else:
                             raise
                     state[side]["current_order_quantity"] = updated_qty
+
+        # Cancel all tasks once the main loop breaks.
         market_listener_task.cancel()
         trade_listener_task.cancel()
         qty_listener_task.cancel()
         fill_monitor_task.cancel()
+        periodic_check_task.cancel()
         
-
     except asyncio.CancelledError:
         logging.info(f"[bold red]Bot for {market['market_slug']} cancelled.[/bold red]", extra={"bot_slug": market["market_slug"]})
         raise
@@ -479,12 +493,9 @@ async def run_async_bot_bidAndTick(client, market, bookAway):
 
 # Example entry point.
 if __name__ == "__main__":
-    # Here you would typically initialize your client and market data.
-    # Then run your bot with something like:
-    #
+    # Here you would typically initialize your client and market data,
+    # then run your bot with:
     #   client = <your_client>
     #   market = <market_data_dict>
-    #   asyncio.run(run_async_bot_bidAndTick(client, market))
-    #
-    # For now, this is just a placeholder.
+    #   asyncio.run(run_async_bot_bidAndTick(client, market, <bookAway>))
     pass
