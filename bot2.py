@@ -35,7 +35,7 @@ async def run_async_bot_bidAndTick(client, market, bookAway):
         # Initialize the default order quantity.
         order_quantities[market_slug] = market_min_order_size
 
-        logging.info(f"[bold green]Bot started[/bold green] for {market_slug}.", extra={"bot_slug": market_slug})
+        logging.info(f"[bold green]Bot started[/bold green] for {market_slug} (health check running in background).", extra={"bot_slug": market_slug})
 
         # Determine the token IDs for both outcomes.
         no_token = None
@@ -49,8 +49,6 @@ async def run_async_bot_bidAndTick(client, market, bookAway):
         if not no_token or not yes_token:
             logging.info("[bold red]Could not determine token IDs for both outcomes.[/bold red]", extra={"bot_slug": market_slug})
             return
-
-        market_name = f"{event_text} (Binary Market)"
 
         # Create a state dictionary for each market side.
         state = {
@@ -119,8 +117,8 @@ async def run_async_bot_bidAndTick(client, market, bookAway):
             check that each side has exactly one order with the expected price and cancel those that don't.
             """
             while True:
-                await asyncio.sleep(60)
-                logging.info("[bold blue]Periodic order check started.[/bold blue]", extra={"bot_slug": market_slug})
+                await asyncio.sleep(10)
+                # logging.info("[bold bright_black]Periodic order check started.[/bold bright_black]", extra={"bot_slug": market_slug})
                 try:
                     active_orders = await asyncio.to_thread(get_market_active_orders, client, market_id)
                 except Exception as e:
@@ -139,7 +137,7 @@ async def run_async_bot_bidAndTick(client, market, bookAway):
 
                 # Only run the deeper health check if 3 or more orders are active.
                 if total_orders < 3:
-                    logging.info("[bold blue]Total order count less than 3, health check not required.[/bold blue]", extra={"bot_slug": market_slug})
+                    # logging.info(f"[bold bright_black]Total order count is {total_orders} (less than 3), health check not required.[/bold bright_black]", extra={"bot_slug": market_slug})
                     continue
 
                 for side, orders, token in [("No", orders_no, no_token), ("Yes", orders_yes, yes_token)]:
@@ -153,13 +151,12 @@ async def run_async_bot_bidAndTick(client, market, bookAway):
                                 extra={"bot_slug": market_slug}
                             )
                             await asyncio.to_thread(cancel_order, client, order["id"])
-                logging.info("[bold blue]Periodic order check complete.[/bold blue]", extra={"bot_slug": market_slug})
+                # logging.info("[bold blue]Periodic order check complete.[/bold blue]", extra={"bot_slug": market_slug})
         
         periodic_check_task = asyncio.create_task(periodic_order_check())
         # --- End of health check integration ---
 
         BEST_BID_THRESHOLD = 3  # Max allowed best bid events per second.
-        COOLDOWN_PERIOD = 10      # Cooldown in seconds when threshold is exceeded.
         last_reset_time = time.time()
         event_count = 0
 
@@ -185,7 +182,6 @@ async def run_async_bot_bidAndTick(client, market, bookAway):
                     )
                     await asyncio.to_thread(cancel_market_orders, client, market_id, no_token)
                     await asyncio.to_thread(cancel_market_orders, client, market_id, yes_token)
-                    await asyncio.sleep(COOLDOWN_PERIOD)
                     break
 
                 best_bid_no = float(event_data["No"]["best_bid"])
