@@ -4,6 +4,7 @@ import logging
 from rich.logging import RichHandler
 from rich.progress import track
 import asyncio
+import datetime
 
 from utils.order import (
     create_and_submit_order,
@@ -85,7 +86,7 @@ async def run_async_bot_bidAndTick(client, market, bookAway):
         async def trade_listener():
             async for data in listen_user_trades(market_id):
                 fill_triggered.set()  # Signal a fill.
-                logging.info(f"[bold magenta]Fill detected! Initiating shutdown for {market_slug}.[/bold magenta]", extra={"bot_slug": market_slug})
+                logging.info(f"[bold magenta]Fill detected! Initiating shutdown for {market_slug}. Timestamp = {datetime.datetime.now()}[/bold magenta]", extra={"bot_slug": market_slug})
                 await event_queue.put({"type": "fill", **data})
 
         async def quantity_update_listener():
@@ -156,18 +157,22 @@ async def run_async_bot_bidAndTick(client, market, bookAway):
         periodic_check_task = asyncio.create_task(periodic_order_check())
         # --- End of health check integration ---
 
-        BEST_BID_THRESHOLD = 3  # Max allowed best bid events per second.
+        BEST_BID_THRESHOLD = 7  # Max allowed best bid events per second.
         last_reset_time = time.time()
         event_count = 0
+        stops = 0
 
         while True:
             if fill_triggered.is_set():
+                break
+            if stops > 2:
+                logging.info(f"[bold red]Bot for {market_slug} has stopped due to too many cancellations.[/bold red]", extra={"bot_slug": market_slug})
                 break
 
             event_data = await event_queue.get()
 
             if event_data["type"] == "best_bid":
-                print("BEST BID")
+                start_time_bestBid = time.time()
                 await asyncio.sleep(0.1)
                 now = time.time()
                 if now - last_reset_time > 1:
@@ -182,7 +187,8 @@ async def run_async_bot_bidAndTick(client, market, bookAway):
                     )
                     await asyncio.to_thread(cancel_market_orders, client, market_id, no_token)
                     await asyncio.to_thread(cancel_market_orders, client, market_id, yes_token)
-                    break
+                    asyncio.sleep(30)
+                    stops += 1
 
                 best_bid_no = float(event_data["No"]["best_bid"])
                 best_ask_no = float(event_data["No"]["best_ask"])
@@ -268,7 +274,7 @@ async def run_async_bot_bidAndTick(client, market, bookAway):
                                     await asyncio.to_thread(cancel_order, client, current_buy_order["id"])
                                     await asyncio.sleep(0.1)
                                 logging.info(
-                                    f"[bold yellow]({side}) Best bid update: Old = [bold cyan]{state[side]['current_best_bid']:.4f}[/bold cyan], New = [bold cyan]{new_best_bid:.4f}[/bold cyan], Spread = [bold cyan]{computed_spread:.4f}[/bold cyan], TBT = [bold cyan]{TOP_BOOK_TICKS}[/bold cyan]. Order was cancelled due to change.[/bold yellow]",
+                                    f"[bold yellow]({side}) Best bid update: Old = [bold cyan]{state[side]['current_best_bid']:.4f}[/bold cyan], New = [bold cyan]{new_best_bid:.4f}[/bold cyan], Spread = [bold cyan]{computed_spread:.4f}[/bold cyan], TBT = [bold cyan]{TOP_BOOK_TICKS}[/bold cyan]. Timestamp = {datetime.datetime.now()} Order was cancelled due to change.[/bold yellow]",
                                     extra={"bot_slug": market_slug},
                                 )
                                 state[side]["current_best_bid"] = new_best_bid
@@ -312,6 +318,10 @@ async def run_async_bot_bidAndTick(client, market, bookAway):
                                 state[side]["current_order_price"] = new_order_price
                                 state[side]["current_order_quantity"] = order_qty
 
+                                end_time_bestBid = time.time()
+                                elapsed_time = end_time_bestBid - start_time_bestBid
+                                print(f"Elapsed time for best bid update: {elapsed_time:.4f} seconds")
+
             elif event_data["type"] == "tick_size":
                 print("TICK SIZE")
                 new_tick_size = float(event_data["new_tick_size"])
@@ -321,7 +331,7 @@ async def run_async_bot_bidAndTick(client, market, bookAway):
                         old_tick = state[side]["current_min_tick_size"]
                         if new_tick_size != old_tick:
                             logging.info(
-                                f"[bold yellow]({side}) Tick size change:[/bold yellow] Old = [bold cyan]{old_tick:.4f}[/bold cyan], New = [bold cyan]{new_tick_size:.4f}[/bold cyan]",
+                                f"[bold yellow]({side}) Tick size change:[/bold yellow] Old = [bold cyan]{old_tick:.4f}[/bold cyan], New = [bold cyan]{new_tick_size:.4f}[/bold cyan]. Timestamp = {datetime.datetime.now()}",
                                 extra={"bot_slug": market_slug},
                             )
                             state[side]["current_min_tick_size"] = new_tick_size
